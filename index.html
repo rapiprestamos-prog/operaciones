@@ -1024,7 +1024,7 @@
   <div class="topbar">
     <button id="statusBadge" class="status-badge" title="Estado de Gemini API">
       <span class="status-dot"></span>
-      <span id="statusText">VERIFICANDO API KEY…</span>
+      <span id="statusText">GEMINI 2.0 FLASH · LISTO</span>
     </button>
     <button id="settingsBtn" class="settings-btn" style="display:none">⚙ Configuración</button>
   </div>
@@ -1042,31 +1042,15 @@
       Análisis legal profundo impulsado por Gemini 2.0 Flash (Google AI).
       Resumen ejecutivo, detección de errores, análisis financiero, obligaciones,
       cláusulas abusivas, alertas por severidad, y lectura en voz alta del
-      resumen o del documento completo. API gratuita · hasta 1,500 análisis/día.
+      resumen o del documento completo.
     </p>
   </header>
 
-  <!-- Setup gate (solo se muestra si hay error de conexión) -->
-  <div id="setupGate" class="setup-gate hidden">
-    <h2>Error de conexión con Gemini</h2>
-    <p style="font-size: 0.9rem; margin-bottom: 0.5rem;">No se pudo conectar con la API de Gemini. Posibles causas:</p>
-    <ol>
-      <li>Sin conexión a internet — verifica tu red.</li>
-      <li>Límite de tasa alcanzado (15 req/min en tier gratuito) — espera un momento.</li>
-      <li>La API key puede haber expirado — contacta al administrador.</li>
-    </ol>
-  </div>
+  <!-- Setup gate oculto -->
+  <div id="setupGate" class="setup-gate hidden" style="display:none!important"></div>
 
-  <!-- Settings panel (oculto - key configurada internamente) -->
-  <div id="settingsPanel" class="settings-panel hidden" style="display:none !important">
-    <div class="settings-row">
-      <label>API Key:</label>
-      <input type="password" id="geminiKey" class="settings-input" placeholder="AIza…" autocomplete="off" />
-    </div>
-    <div class="settings-row">
-      <button class="btn-primary" id="btnSaveSettings">Guardar y verificar</button>
-    </div>
-  </div>
+  <!-- Settings panel oculto -->
+  <div id="settingsPanel" class="settings-panel hidden" style="display:none!important"><button class="btn-primary" id="btnSaveSettings" style="display:none"></button><input type="text" id="ollamaUrl" style="display:none"/><input type="text" id="ollamaModel" style="display:none"/></div>
 
   <div id="uploadZone" class="upload-zone disabled">
     <input type="file" id="fileInput" accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document" multiple />
@@ -1125,73 +1109,30 @@
 
 <script>
   const MAX_SIZE = 20 * 1024 * 1024;
-  const STORAGE_KEY = 'lex_gemini_settings';
+  const GEMINI_KEY = 'AIzaSyBo3eHf6smNoPA8I33ZpzmWcCkA1wEz5mw';
   const GEMINI_MODEL = 'gemini-2.0-flash';
 
   const $ = (id) => document.getElementById(id);
 
-  let geminiApiKey = 'AIzaSyBo3eHf6smNoPA8I33ZpzmWcCkA1wEz5mw';
   let geminiConnected = false;
 
   const documents = new Map();
   let nextId = 1;
   let currentSpeech = null;
 
-  function loadSettings() { /* key fija, no se necesita */ }
-  function saveSettings() { checkGemini(); }
-
+  // ---------- Settings (no-op con key fija) ----------
+  function loadSettings() {}
+  function saveSettings() {}
   $('btnSaveSettings').addEventListener('click', saveSettings);
-  $('settingsBtn').addEventListener('click', () => {
-    $('settingsPanel').classList.toggle('hidden');
-  });
+  $('settingsBtn').addEventListener('click', () => {});
 
-  // ---------- Gemini check ----------
-  async function checkGemini() {
-    const badge = $('statusBadge');
-    const text = $('statusText');
-    badge.classList.remove('connected');
-    text.textContent = 'VERIFICANDO…';
-
-    if (!geminiApiKey) {
-      geminiConnected = false;
-      text.textContent = 'API KEY NO CONFIGURADA';
-      $('setupGate').classList.remove('hidden');
-      $('uploadZone').classList.add('disabled');
-      return;
-    }
-
-    try {
-      const resp = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${geminiApiKey}`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            contents: [{ parts: [{ text: 'Responde solo: ok' }] }],
-            generationConfig: { maxOutputTokens: 5 }
-          })
-        }
-      );
-
-      if (resp.status === 400 || resp.status === 401 || resp.status === 403) {
-        const err = await resp.json().catch(() => ({}));
-        throw new Error('API Key inválida: ' + (err?.error?.message || resp.status));
-      }
-      if (!resp.ok) throw new Error('HTTP ' + resp.status);
-
-      geminiConnected = true;
-      badge.classList.add('connected');
-      text.textContent = 'GEMINI 2.0 FLASH · LISTO';
-      $('setupGate').classList.add('hidden');
-      $('uploadZone').classList.remove('disabled');
-      hideError();
-    } catch (e) {
-      geminiConnected = false;
-      text.textContent = 'ERROR DE CONEXIÓN';
-      $('setupGate').classList.remove('hidden');
-      $('uploadZone').classList.add('disabled');
-      showError(e.message);
-    }
+  // ---------- Gemini (key fija, sin ping de verificación) ----------
+  function checkGemini() {
+    $('statusBadge').classList.add('connected');
+    $('statusText').textContent = 'GEMINI 2.0 FLASH · LISTO';
+    geminiConnected = true;
+    $('uploadZone').classList.remove('disabled');
+    hideError();
   }
 
   // ---------- Upload wiring ----------
@@ -1258,7 +1199,7 @@
 
     if (rejected.length) showError('No se pudieron agregar: ' + rejected.join(' · '));
 
-    // Process sequentially for reliability
+    // Process sequentially
     for (const { file, kind } of accepted) {
       const id = nextId++;
       documents.set(id, { id, file, kind, status: 'queued', data: null, expanded: false, error: null, progress: 'En cola…' });
@@ -1424,25 +1365,20 @@ DOCUMENTO A ANALIZAR:
 `;
 
   async function callGemini(text, onProgress) {
-    // Gemini 2.0 Flash supports up to 1M tokens; we trim generously at 200K chars
     const MAX_CHARS = 200000;
     const trimmed = text.length > MAX_CHARS
       ? text.slice(0, MAX_CHARS) + '\n\n[... documento truncado por tamaño ...]'
       : text;
 
-    onProgress?.('enviando documento…');
+    onProgress?.('enviando a Gemini…');
 
     const resp = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${geminiApiKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_KEY}`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          contents: [{
-            parts: [{
-              text: ANALYSIS_PROMPT + trimmed + '\n---\n\nRespuesta JSON:'
-            }]
-          }],
+          contents: [{ parts: [{ text: ANALYSIS_PROMPT + trimmed + '\n---\n\nRespuesta JSON:' }] }],
           generationConfig: {
             temperature: 0.2,
             maxOutputTokens: 8192,
@@ -1455,29 +1391,18 @@ DOCUMENTO A ANALIZAR:
     if (!resp.ok) {
       const err = await resp.json().catch(() => ({}));
       const msg = err?.error?.message || resp.statusText;
-      if (resp.status === 429) throw new Error('Límite de tasa alcanzado (15 req/min en tier gratuito). Espera un momento e intenta de nuevo.');
-      throw new Error(`Gemini respondió con error ${resp.status}: ${msg}`);
+      if (resp.status === 429) throw new Error('Límite de Gemini alcanzado (15 req/min). Espera 1 minuto e intenta de nuevo.');
+      throw new Error('Error Gemini ' + resp.status + ': ' + msg);
     }
 
     onProgress?.('procesando respuesta…');
-
     const data = await resp.json();
     const raw = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
-
-    const clean = raw.trim()
-      .replace(/^```(?:json)?\s*/i, '')
-      .replace(/\s*```$/i, '');
-
+    const clean = raw.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '');
     const start = clean.indexOf('{');
     const end = clean.lastIndexOf('}');
-    if (start === -1 || end === -1) {
-      throw new Error('Gemini no respondió en formato JSON válido. Respuesta: ' + clean.slice(0, 300));
-    }
-    try {
-      return JSON.parse(clean.slice(start, end + 1));
-    } catch (e) {
-      throw new Error('Error parseando JSON de Gemini. Respuesta: ' + clean.slice(0, 300));
-    }
+    if (start === -1 || end === -1) throw new Error('Gemini no devolvió JSON válido: ' + clean.slice(0, 200));
+    return JSON.parse(clean.slice(start, end + 1));
   }
 
   function showError(msg) { $('errorMsg').textContent = msg; $('errorBox').classList.remove('hidden'); }
@@ -2016,7 +1941,6 @@ DOCUMENTO A ANALIZAR:
   // Init
   loadSettings();
   checkGemini();
-  setInterval(checkGemini, 60000); // re-check every 60s
 </script>
 </body>
 </html>
