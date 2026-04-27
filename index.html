@@ -14,7 +14,6 @@
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
   }
 </script>
-<script src="https://unpkg.com/docx@8.5.0/build/index.js"></script>
 <style>
   :root {
     --paper: #f1e9db;
@@ -1020,12 +1019,15 @@
     bottom: 2rem;
     right: 2rem;
     z-index: 1000;
-    display: none;
+    display: flex;
     flex-direction: column;
     align-items: flex-end;
     gap: 0.5rem;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s;
   }
-  .fab-download.visible { display: flex; }
+  .fab-download.visible { opacity: 1; pointer-events: all; }
 
   .fab-main {
     display: flex;
@@ -2031,8 +2033,9 @@ DOCUMENTO A ANALIZAR:
   function updateFab() {
     const hasDone = Array.from(documents.values()).some(d => d.status === 'done');
     const fab = $('fabDownload');
+    // Show always once there are done docs
     if (hasDone) fab.classList.add('visible');
-    else { fab.classList.remove('visible'); fab.classList.remove('open'); }
+    else fab.classList.remove('visible');
   }
 
   $('fabToggle').addEventListener('click', () => {
@@ -2059,299 +2062,197 @@ DOCUMENTO A ANALIZAR:
     return '';
   }
 
-  async function generateDocx(summaryOnly) {
-    const { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType, BorderStyle, TableRow, TableCell, Table, WidthType, ShadingType } = docx;
+  function generateDocx(summaryOnly) {
     const done = Array.from(documents.values()).filter(d => d.status === 'done');
-    if (!done.length) return;
+    if (!done.length) { alert('Primero analiza un documento para poder descargarlo.'); return; }
 
-    const OXBLOOD = '7B2333';
-    const INK     = '1B1815';
-    const SOFT    = '55504A';
-    const SEPIA   = '8A6A3C';
-    const RED     = 'A71F2D';
-    const AMBER   = 'B57A1F';
-    const GREEN   = '5A6B3C';
+    const OXBLOOD = '#7B2333';
+    const INK = '#1B1815';
+    const SOFT = '#55504A';
+    const RED = '#A71F2D';
+    const AMBER = '#B57A1F';
+    const GREEN = '#5A6B3C';
 
-    const children = [];
+    function p2(obj, ...keys) { for (const k of keys) if (obj?.[k]) return obj[k]; return ''; }
 
-    // ── PORTADA ──────────────────────────────────────────────
-    children.push(new Paragraph({
-      alignment: AlignmentType.CENTER,
-      spacing: { before: 400, after: 100 },
-      children: [new TextRun({ text: 'LEX PRO', bold: true, size: 52, color: INK, font: 'Georgia' })]
-    }));
-    children.push(new Paragraph({
-      alignment: AlignmentType.CENTER,
-      spacing: { before: 0, after: 60 },
-      children: [new TextRun({ text: 'INFORME DE ANÁLISIS DOCUMENTAL', size: 22, color: OXBLOOD, font: 'Arial', bold: true })]
-    }));
-    children.push(new Paragraph({
-      alignment: AlignmentType.CENTER,
-      spacing: { before: 0, after: 60 },
-      children: [new TextRun({ text: 'Groq AI  ·  Llama 3.3 70B', size: 18, color: SOFT, font: 'Arial' })]
-    }));
-    children.push(new Paragraph({
-      alignment: AlignmentType.CENTER,
-      spacing: { before: 0, after: 400 },
-      children: [new TextRun({ text: new Date().toLocaleDateString('es-ES', {year:'numeric',month:'long',day:'numeric'}), size: 18, color: SOFT, font: 'Arial' })]
-    }));
-    children.push(new Paragraph({
-      border: { bottom: { color: OXBLOOD, style: BorderStyle.SINGLE, size: 6 } },
-      spacing: { before: 0, after: 400 },
-      children: []
-    }));
+    let body = '';
 
-    // ── CADA DOCUMENTO ───────────────────────────────────────
+    // Cover
+    body += `<div style="text-align:center;margin-bottom:40px;padding-bottom:20px;border-bottom:3px solid ${OXBLOOD}">
+      <h1 style="font-family:Georgia,serif;font-size:36pt;color:${INK};margin:0">LEX PRO</h1>
+      <p style="font-family:Arial,sans-serif;font-size:14pt;color:${OXBLOOD};font-weight:bold;margin:8px 0">INFORME DE ANÁLISIS DOCUMENTAL</p>
+      <p style="font-family:Arial,sans-serif;font-size:11pt;color:${SOFT};margin:4px 0">Groq AI · Llama 3.3 70B</p>
+      <p style="font-family:Arial,sans-serif;font-size:11pt;color:${SOFT};margin:4px 0">${new Date().toLocaleDateString('es-ES',{year:'numeric',month:'long',day:'numeric'})}</p>
+    </div>`;
+
     done.forEach((doc, idx) => {
       const a = doc.data;
       const est = a.estadoDocumento || {};
       const nr = (est.nivelRiesgo || '').toLowerCase();
-      const riskColor = (nr === 'critico' || nr === 'alto') ? RED : nr === 'medio' ? AMBER : GREEN;
+      const riskColor = (nr==='critico'||nr==='alto') ? RED : nr==='medio' ? AMBER : GREEN;
 
-      if (idx > 0) {
-        children.push(new Paragraph({ pageBreakBefore: true, children: [] }));
-      }
+      if (idx > 0) body += `<div style="page-break-before:always"></div>`;
 
-      // Tipo de documento
-      children.push(new Paragraph({
-        spacing: { before: 200, after: 80 },
-        children: [new TextRun({ text: (a.tipoDocumento || 'DOCUMENTO').toUpperCase(), bold: true, size: 40, color: INK, font: 'Georgia' })]
-      }));
-      if (a.subtipo) children.push(new Paragraph({
-        spacing: { before: 0, after: 40 },
-        children: [new TextRun({ text: a.subtipo, size: 20, color: SOFT, font: 'Arial', italics: true })]
-      }));
-      if (a.jurisdiccion && a.jurisdiccion !== 'No especificada') children.push(new Paragraph({
-        spacing: { before: 0, after: 40 },
-        children: [new TextRun({ text: 'Jurisdicción: ' + a.jurisdiccion, size: 18, color: SOFT, font: 'Arial' })]
-      }));
-      children.push(new Paragraph({
-        spacing: { before: 0, after: 120 },
-        children: [new TextRun({ text: '📁 ' + doc.file.name, size: 17, color: SOFT, font: 'Courier New' })]
-      }));
+      // Doc header
+      body += `<h2 style="font-family:Georgia,serif;font-size:26pt;color:${INK};margin:20px 0 4px">${escapeHTML(a.tipoDocumento||'DOCUMENTO')}</h2>`;
+      if (a.subtipo) body += `<p style="font-family:Arial,sans-serif;font-size:12pt;color:${SOFT};font-style:italic;margin:0 0 4px">${escapeHTML(a.subtipo)}</p>`;
+      if (a.jurisdiccion && a.jurisdiccion!=='No especificada') body += `<p style="font-family:Arial,sans-serif;font-size:11pt;color:${SOFT};margin:0 0 4px">Jurisdicción: ${escapeHTML(a.jurisdiccion)}</p>`;
+      body += `<p style="font-family:Courier New,monospace;font-size:10pt;color:${SOFT};margin:0 0 16px">📁 ${escapeHTML(doc.file.name)}</p>`;
 
-      // Badge de riesgo
+      // Risk
       if (est.nivelRiesgo) {
-        children.push(new Paragraph({
-          spacing: { before: 80, after: 40 },
-          shading: { type: ShadingType.SOLID, color: 'FFF5F5' },
-          children: [
-            new TextRun({ text: '⚠  NIVEL DE RIESGO: ', bold: true, size: 19, color: riskColor, font: 'Arial' }),
-            new TextRun({ text: est.nivelRiesgo.toUpperCase(), bold: true, size: 19, color: riskColor, font: 'Arial' }),
-          ]
-        }));
-        if (est.resumenEstado) children.push(new Paragraph({
-          spacing: { before: 0, after: 160 },
-          children: [new TextRun({ text: est.resumenEstado, size: 18, color: INK, font: 'Arial', italics: true })]
-        }));
+        body += `<div style="background:#FFF5F5;border-left:4px solid ${riskColor};padding:10px 16px;margin:12px 0">
+          <p style="font-family:Arial,sans-serif;font-size:12pt;font-weight:bold;color:${riskColor};margin:0">⚠ NIVEL DE RIESGO: ${escapeHTML(est.nivelRiesgo.toUpperCase())}</p>
+          ${est.resumenEstado ? `<p style="font-family:Arial,sans-serif;font-size:11pt;color:${INK};font-style:italic;margin:4px 0 0">${escapeHTML(est.resumenEstado)}</p>` : ''}
+        </div>`;
       }
 
-      // Helper: sección con línea
-      const section = (title) => {
-        children.push(new Paragraph({
-          spacing: { before: 280, after: 40 },
-          border: { bottom: { color: OXBLOOD, style: BorderStyle.SINGLE, size: 3 } },
-          children: [new TextRun({ text: title.toUpperCase(), bold: true, size: 20, color: OXBLOOD, font: 'Arial' })]
-        }));
-      };
+      const sec = (title) => `<h3 style="font-family:Arial,sans-serif;font-size:12pt;font-weight:bold;color:${OXBLOOD};text-transform:uppercase;border-bottom:1px solid ${OXBLOOD};padding-bottom:4px;margin:24px 0 8px">${title}</h3>`;
+      const bul = (text, color) => `<p style="font-family:Arial,sans-serif;font-size:11pt;color:${color||INK};margin:4px 0 4px 20px">• ${escapeHTML(text||'')}</p>`;
+      const par = (text) => `<p style="font-family:Arial,sans-serif;font-size:11pt;color:${INK};margin:6px 0;line-height:1.6">${escapeHTML(text||'')}</p>`;
 
-      const bullet = (text, color) => {
-        children.push(new Paragraph({
-          spacing: { before: 40, after: 40 },
-          indent: { left: 360 },
-          children: [new TextRun({ text: text, size: 19, color: color || INK, font: 'Arial' })]
-        }));
-      };
-
-      const body = (text) => {
-        children.push(new Paragraph({
-          spacing: { before: 60, after: 60 },
-          children: [new TextRun({ text: text || '', size: 19, color: INK, font: 'Arial' })]
-        }));
-      };
-
-      // ── Resumen ejecutivo
-      section('Resumen Ejecutivo');
-      body(a.resumenEjecutivo || a.resumen || '');
+      // Executive summary
+      body += sec('Resumen Ejecutivo');
+      body += par(a.resumenEjecutivo || a.resumen || '');
 
       if (!summaryOnly) {
-        // ── Puntos clave
+        // Key points
         const pts = a.puntosImportantes || [];
         if (pts.length) {
-          section('Puntos Clave');
-          pts.forEach((p, i) => bullet((i+1) + '.  ' + p));
+          body += sec('Puntos Clave');
+          pts.forEach((p,i) => { body += bul((i+1)+'. '+p); });
         }
 
-        // ── Datos financieros
+        // Financial
         const fin = a.datosFinancieros || {};
-        if (fin.montoPrincipal && fin.montoPrincipal !== 'N/A') {
-          section('Datos Financieros');
-          if (fin.montoPrincipal) bullet('Monto principal:  ' + fin.montoPrincipal + ' ' + (fin.moneda||''), SEPIA);
-          if (fin.montoEnLetras && fin.montoEnLetras !== 'N/A') bullet('En letras:  ' + fin.montoEnLetras);
-          if (fin.tasaInteres && fin.tasaInteres !== 'N/A') bullet('Tasa de interés:  ' + fin.tasaInteres);
-          if (fin.plazoTotal && fin.plazoTotal !== 'N/A') bullet('Plazo total:  ' + fin.plazoTotal);
-          if (fin.cuotaMensual && fin.cuotaMensual !== 'N/A') bullet('Cuota mensual:  ' + fin.cuotaMensual);
-          if (fin.coincideLetraCifra === false) {
-            children.push(new Paragraph({
-              spacing: { before: 60, after: 60 },
-              indent: { left: 360 },
-              children: [new TextRun({ text: '⚠  ADVERTENCIA: El monto en letras NO coincide con la cifra numérica', bold: true, size: 19, color: RED, font: 'Arial' })]
-            }));
-          }
+        if (fin.montoPrincipal && fin.montoPrincipal!=='N/A') {
+          body += sec('Datos Financieros');
+          if (fin.montoPrincipal) body += bul('Monto principal: '+fin.montoPrincipal+' '+(fin.moneda||''), '#8A6A3C');
+          if (fin.montoEnLetras && fin.montoEnLetras!=='N/A') body += bul('En letras: '+fin.montoEnLetras);
+          if (fin.tasaInteres && fin.tasaInteres!=='N/A') body += bul('Tasa de interés: '+fin.tasaInteres);
+          if (fin.plazoTotal && fin.plazoTotal!=='N/A') body += bul('Plazo total: '+fin.plazoTotal);
+          if (fin.coincideLetraCifra===false) body += `<p style="font-family:Arial,sans-serif;font-size:11pt;color:${RED};font-weight:bold;margin:6px 0 6px 20px">⚠ ADVERTENCIA: El monto en letras NO coincide con la cifra numérica</p>`;
         }
 
-        // ── Partes
-        const partes = a.partes || [];
+        // Parties
+        const partes = a.partes||[];
         if (partes.length) {
-          section('Partes Involucradas');
+          body += sec('Partes Involucradas');
           partes.forEach(p => {
-            const nombre = pick2(p,'nombre','name');
-            const rol = pick2(p,'rol','role');
-            const id = pick2(p,'identificacion','cedula','ruc');
-            bullet('•  ' + nombre + (rol ? '  —  ' + rol : '') + (id ? '  (' + id + ')' : ''));
+            const nombre = p2(p,'nombre','name');
+            const rol = p2(p,'rol','role');
+            const id = p2(p,'identificacion','cedula','ruc');
+            body += bul(nombre+(rol?' — '+rol:'')+(id?' ('+id+')':''));
           });
         }
 
-        // ── Fechas
-        const fechas = a.fechasClave || a.fechas || [];
+        // Dates
+        const fechas = a.fechasClave||a.fechas||[];
         if (fechas.length) {
-          section('Fechas Clave');
+          body += sec('Fechas Clave');
           fechas.forEach(f => {
-            const fecha = pick2(f,'fecha','date');
-            const desc = pick2(f,'descripcion','description','evento','tipo');
-            bullet('•  ' + fecha + (desc ? '  —  ' + desc : ''));
+            const fecha = p2(f,'fecha','date');
+            const desc = p2(f,'descripcion','description','evento','tipo');
+            body += bul(fecha+(desc?' — '+desc:''));
           });
         }
 
-        // ── Obligaciones
-        const obligs = a.obligaciones || [];
+        // Obligations
+        const obligs = a.obligaciones||[];
         if (obligs.length) {
-          section('Obligaciones');
+          body += sec('Obligaciones');
           obligs.forEach(o => {
-            const resp = pick2(o,'responsable','parte');
-            const ob = pick2(o,'obligacion','descripcion','texto');
-            const plazo = o.plazo || '';
-            bullet('•  ' + (resp ? '[' + resp + ']  ' : '') + ob + (plazo && plazo !== 'No especificado' ? '  (Plazo: ' + plazo + ')' : ''));
+            const resp = p2(o,'responsable','parte');
+            const ob = p2(o,'obligacion','descripcion','texto');
+            const plazo = o.plazo||'';
+            body += bul((resp?'['+resp+'] ':'')+ob+(plazo&&plazo!=='No especificado'?' (Plazo: '+plazo+')':''));
           });
         }
 
-        // ── Cláusulas
-        const clauses = a.clausulasClave || [];
+        // Clauses
+        const clauses = a.clausulasClave||[];
         if (clauses.length) {
-          section('Cláusulas Clave');
-          clauses.forEach((c, i) => {
-            const titulo = pick2(c,'titulo','title','clausula');
-            const detalle = pick2(c,'detalle','descripcion','texto','contenido');
-            const imp = (pick2(c,'importancia','importance') || '').toUpperCase();
-            const impColor = imp === 'ALTA' ? RED : imp === 'MEDIA' ? AMBER : INK;
-            children.push(new Paragraph({
-              spacing: { before: 60, after: 20 },
-              indent: { left: 360 },
-              children: [
-                new TextRun({ text: (i+1) + '.  ' + titulo, bold: true, size: 19, color: impColor, font: 'Arial' }),
-                imp ? new TextRun({ text: '  [' + imp + ']', bold: true, size: 16, color: impColor, font: 'Arial' }) : new TextRun({ text: '' })
-              ]
-            }));
-            if (detalle) children.push(new Paragraph({
-              spacing: { before: 0, after: 40 },
-              indent: { left: 720 },
-              children: [new TextRun({ text: detalle, size: 18, color: SOFT, font: 'Arial', italics: true })]
-            }));
+          body += sec('Cláusulas Clave');
+          clauses.forEach((c,i) => {
+            const titulo = p2(c,'titulo','title','clausula');
+            const detalle = p2(c,'detalle','descripcion','texto','contenido');
+            const imp = (p2(c,'importancia','importance')||'').toUpperCase();
+            const impColor = imp==='ALTA'?RED:imp==='MEDIA'?AMBER:INK;
+            body += `<p style="font-family:Arial,sans-serif;font-size:11pt;color:${impColor};font-weight:bold;margin:6px 0 2px 20px">${i+1}. ${escapeHTML(titulo)}${imp?' <span style="font-size:9pt">['+imp+']</span>':''}</p>`;
+            if (detalle) body += `<p style="font-family:Arial,sans-serif;font-size:10pt;color:${SOFT};font-style:italic;margin:0 0 4px 40px">${escapeHTML(detalle)}</p>`;
           });
         }
 
-        // ── Alertas
-        const alertas = a.alertas || [];
+        // Alerts
+        const alertas = a.alertas||[];
         if (alertas.length) {
-          section('Alertas y Observaciones');
+          body += sec('Alertas y Observaciones');
           alertas.forEach(al => {
-            const txt = pick2(al,'problema','descripcion','mensaje','texto','alerta');
-            const sev = (pick2(al,'severidad','nivel','tipo') || '').toUpperCase();
-            const rec = pick2(al,'recomendacion','recommendation','accion','solucion');
-            const sevColor = sev === 'ALTA' ? RED : sev === 'MEDIA' ? AMBER : GREEN;
+            const txt = p2(al,'problema','descripcion','mensaje','texto','alerta');
+            const sev = (p2(al,'severidad','nivel','tipo')||'').toUpperCase();
+            const rec = p2(al,'recomendacion','recommendation','accion','solucion');
+            const sevColor = sev==='ALTA'?RED:sev==='MEDIA'?AMBER:GREEN;
             if (txt) {
-              children.push(new Paragraph({
-                spacing: { before: 60, after: 20 },
-                indent: { left: 360 },
-                children: [
-                  new TextRun({ text: '⚠  ', size: 19, color: sevColor, font: 'Arial' }),
-                  sev ? new TextRun({ text: '[' + sev + ']  ', bold: true, size: 19, color: sevColor, font: 'Arial' }) : new TextRun({ text: '' }),
-                  new TextRun({ text: txt, size: 19, color: INK, font: 'Arial' })
-                ]
-              }));
-              if (rec) children.push(new Paragraph({
-                spacing: { before: 0, after: 40 },
-                indent: { left: 720 },
-                children: [new TextRun({ text: '→  Recomendación: ' + rec, size: 17, color: SOFT, font: 'Arial', italics: true })]
-              }));
+              body += `<p style="font-family:Arial,sans-serif;font-size:11pt;color:${sevColor};font-weight:bold;margin:6px 0 2px 20px">⚠ ${sev?'['+sev+'] ':''}${escapeHTML(txt)}</p>`;
+              if (rec) body += `<p style="font-family:Arial,sans-serif;font-size:10pt;color:${SOFT};font-style:italic;margin:0 0 4px 40px">→ Recomendación: ${escapeHTML(rec)}</p>`;
             }
           });
         }
 
-        // ── Recomendaciones
-        const recs = (a.recomendaciones || a.recomendacion || [])
-          .map(r => typeof r === 'string' ? r : pick2(r,'texto','recomendacion','detalle','accion'))
-          .filter(Boolean);
+        // Recommendations
+        const recs = (a.recomendaciones||a.recomendacion||[])
+          .map(r => typeof r==='string'?r:p2(r,'texto','recomendacion','detalle','accion')).filter(Boolean);
         if (recs.length) {
-          section('Recomendaciones');
-          recs.forEach((r, i) => bullet((i+1) + '.  ' + r));
+          body += sec('Recomendaciones');
+          recs.forEach((r,i) => { body += bul((i+1)+'. '+r); });
         }
 
-        // ── Evaluación
-        if (est.aspectosPositivos?.length || est.aspectosNegativos?.length) {
-          section('Evaluación del Documento');
+        // Evaluation
+        if (est.aspectosPositivos?.length||est.aspectosNegativos?.length) {
+          body += sec('Evaluación del Documento');
           if (est.aspectosPositivos?.length) {
-            children.push(new Paragraph({
-              spacing: { before: 80, after: 20 },
-              children: [new TextRun({ text: '✓  Aspectos positivos', bold: true, size: 19, color: GREEN, font: 'Arial' })]
-            }));
-            est.aspectosPositivos.forEach(p => bullet('•  ' + p, GREEN));
+            body += `<p style="font-family:Arial,sans-serif;font-size:11pt;color:${GREEN};font-weight:bold;margin:8px 0 4px">✓ Aspectos positivos</p>`;
+            est.aspectosPositivos.forEach(p => { body += bul(p, GREEN); });
           }
           if (est.aspectosNegativos?.length) {
-            children.push(new Paragraph({
-              spacing: { before: 80, after: 20 },
-              children: [new TextRun({ text: '✗  Aspectos a corregir', bold: true, size: 19, color: RED, font: 'Arial' })]
-            }));
-            est.aspectosNegativos.forEach(p => bullet('•  ' + p, RED));
+            body += `<p style="font-family:Arial,sans-serif;font-size:11pt;color:${RED};font-weight:bold;margin:8px 0 4px">✗ Aspectos a corregir</p>`;
+            est.aspectosNegativos.forEach(p => { body += bul(p, RED); });
           }
         }
       }
 
-      // ── Síntesis / aprendizaje
+      // Synthesis
       if (a.lecturaVoz) {
-        section('Síntesis para Comprensión');
-        children.push(new Paragraph({
-          spacing: { before: 80, after: 80 },
-          indent: { left: 360, right: 360 },
-          shading: { type: ShadingType.SOLID, color: 'F5F0E8' },
-          children: [new TextRun({ text: a.lecturaVoz, size: 20, color: INK, font: 'Georgia', italics: true })]
-        }));
+        body += sec('Síntesis para Comprensión');
+        body += `<div style="background:#F5F0E8;border-left:3px solid #8A6A3C;padding:12px 16px;margin:8px 0">
+          <p style="font-family:Georgia,serif;font-size:12pt;color:${INK};font-style:italic;margin:0;line-height:1.7">${escapeHTML(a.lecturaVoz)}</p>
+        </div>`;
       }
     });
 
-    // ── PIE DE PÁGINA ─────────────────────────────────────────
-    children.push(new Paragraph({
-      spacing: { before: 400 },
-      border: { top: { color: OXBLOOD, style: BorderStyle.SINGLE, size: 3 } },
-      alignment: AlignmentType.CENTER,
-      children: [new TextRun({ text: 'Lex Pro · Groq AI · Llama 3.3 70B  ·  Este análisis es informativo y no sustituye el consejo de un abogado.', size: 16, color: SOFT, font: 'Arial' })]
-    }));
+    // Footer
+    body += `<div style="border-top:1px solid ${OXBLOOD};margin-top:40px;padding-top:12px;text-align:center">
+      <p style="font-family:Arial,sans-serif;font-size:9pt;color:${SOFT};margin:0">Lex Pro · Groq AI · Llama 3.3 70B · Este análisis es informativo y no sustituye el consejo de un abogado.</p>
+    </div>`;
 
-    const docObj = new Document({
-      creator: 'Lex Pro',
-      title: 'Informe de Análisis Documental',
-      description: 'Generado por Lex Pro con Groq AI',
-      sections: [{ properties: {}, children }]
-    });
+    const fullHtml = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">
+<head><meta charset="utf-8">
+<style>
+  @page { margin: 2cm; }
+  body { font-family: Arial, sans-serif; }
+</style>
+</head><body>${body}</body></html>`;
 
-    const blob = await Packer.toBlob(docObj);
+    const blob = new Blob([fullHtml], { type: 'application/msword' });
     const a2 = document.createElement('a');
     a2.href = URL.createObjectURL(blob);
-    const done2 = Array.from(documents.values()).filter(d => d.status === 'done');
-    a2.download = done2.length === 1
-      ? 'Analisis_' + done2[0].file.name.replace(/\.[^.]+$/, '') + (summaryOnly ? '_Resumen' : '_Completo') + '.docx'
-      : 'Analisis_Documentos_' + new Date().toISOString().slice(0,10) + '.docx';
+    const fname = done.length===1
+      ? 'Analisis_'+done[0].file.name.replace(/\.[^.]+$/,'')+( summaryOnly?'_Resumen':'_Completo')+'.doc'
+      : 'Analisis_Documentos_'+new Date().toISOString().slice(0,10)+'.doc';
+    a2.download = fname;
+    document.body.appendChild(a2);
     a2.click();
+    document.body.removeChild(a2);
     URL.revokeObjectURL(a2.href);
   }
 
