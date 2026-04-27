@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Lex · Análisis Documental con Gemini</title>
+<title>Lex · Análisis Documental</title>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;0,9..144,800;1,9..144,400&family=DM+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
@@ -1022,9 +1022,9 @@
 <div class="container">
 
   <div class="topbar">
-    <button id="statusBadge" class="status-badge" title="Estado de Gemini API">
+    <button id="statusBadge" class="status-badge" title="Estado de Groq">
       <span class="status-dot"></span>
-      <span id="statusText">GEMINI 2.0 FLASH · LISTO</span>
+      <span id="statusText">GROQ · LISTO</span>
     </button>
     <button id="settingsBtn" class="settings-btn" style="display:none">⚙ Configuración</button>
   </div>
@@ -1032,25 +1032,23 @@
   <header>
     <div class="eyebrow">
       <div class="eyebrow-line"></div>
-      Lex Pro · Análisis Forense · Gemini AI
+      Lex Pro · Análisis Forense · Groq AI
     </div>
     <h1>
       Tus documentos,<br />
       <em>bajo el microscopio.</em>
     </h1>
     <p class="lead">
-      Análisis legal profundo impulsado por Gemini 2.0 Flash (Google AI).
+      Análisis legal profundo impulsado por Groq AI · Llama 3.3 70B.
       Resumen ejecutivo, detección de errores, análisis financiero, obligaciones,
       cláusulas abusivas, alertas por severidad, y lectura en voz alta del
       resumen o del documento completo.
     </p>
   </header>
 
-  <!-- Setup gate oculto -->
   <div id="setupGate" class="setup-gate hidden" style="display:none!important"></div>
 
-  <!-- Settings panel oculto -->
-  <div id="settingsPanel" class="settings-panel hidden" style="display:none!important"><button class="btn-primary" id="btnSaveSettings" style="display:none"></button><input type="text" id="ollamaUrl" style="display:none"/><input type="text" id="ollamaModel" style="display:none"/></div>
+  <div id="settingsPanel" style="display:none!important"><button id="btnSaveSettings" style="display:none"></button><input id="ollamaUrl" style="display:none"/><input id="ollamaModel" style="display:none"/></div>
 
   <div id="uploadZone" class="upload-zone disabled">
     <input type="file" id="fileInput" accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document" multiple />
@@ -1103,14 +1101,14 @@
   </div>
 
   <p id="disclaimer" class="disclaimer hidden">
-    Este análisis es informativo. No sustituye el consejo de un abogado. · Procesado con Gemini 2.0 Flash (Google AI).
+    Este análisis es informativo. No sustituye el consejo de un abogado. · Procesado con Groq AI.
   </p>
 </div>
 
 <script>
   const MAX_SIZE = 20 * 1024 * 1024;
-  const GEMINI_KEY = 'AIzaSyBo3eHf6smNoPA8I33ZpzmWcCkA1wEz5mw';
-  const GEMINI_MODEL = 'gemini-2.0-flash';
+  const GROQ_KEY = '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';
+  const GROQ_MODEL = 'llama-3.3-70b-versatile';
 
   const $ = (id) => document.getElementById(id);
 
@@ -1120,16 +1118,15 @@
   let nextId = 1;
   let currentSpeech = null;
 
-  // ---------- Settings (no-op con key fija) ----------
   function loadSettings() {}
   function saveSettings() {}
   $('btnSaveSettings').addEventListener('click', saveSettings);
   $('settingsBtn').addEventListener('click', () => {});
 
-  // ---------- Gemini (key fija, sin ping de verificación) ----------
-  function checkGemini() {
+  // ---------- Groq (key fija, sin ping) ----------
+  function checkGroq() {
     $('statusBadge').classList.add('connected');
-    $('statusText').textContent = 'GEMINI 2.0 FLASH · LISTO';
+    $('statusText').textContent = 'GROQ · LLAMA 3.3 · LISTO';
     geminiConnected = true;
     $('uploadZone').classList.remove('disabled');
     hideError();
@@ -1243,10 +1240,10 @@
       // Save raw text for full-document reading
       doc.rawText = text;
 
-      doc.progress = 'Analizando con Gemini AI…';
+      doc.progress = 'Analizando con Groq AI…';
       renderAll();
 
-      const result = await callGemini(text, (msg) => {
+      const result = await callGroq(text, (msg) => {
         doc.progress = 'Analizando… ' + msg;
         renderAll();
       });
@@ -1364,44 +1361,46 @@ DOCUMENTO A ANALIZAR:
 ---
 `;
 
-  async function callGemini(text, onProgress) {
-    const MAX_CHARS = 200000;
+  async function callGroq(text, onProgress) {
+    const MAX_CHARS = 20000;
     const trimmed = text.length > MAX_CHARS
       ? text.slice(0, MAX_CHARS) + '\n\n[... documento truncado por tamaño ...]'
       : text;
 
-    onProgress?.('enviando a Gemini…');
+    onProgress?.('enviando a Groq…');
 
-    const resp = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_KEY}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: ANALYSIS_PROMPT + trimmed + '\n---\n\nRespuesta JSON:' }] }],
-          generationConfig: {
-            temperature: 0.2,
-            maxOutputTokens: 8192,
-            responseMimeType: 'application/json'
-          }
-        })
-      }
-    );
+    const resp = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + GROQ_KEY
+      },
+      body: JSON.stringify({
+        model: GROQ_MODEL,
+        temperature: 0.2,
+        max_tokens: 4096,
+        response_format: { type: 'json_object' },
+        messages: [
+          { role: 'system', content: 'Eres un abogado senior experto. Responde ÚNICAMENTE con JSON válido.' },
+          { role: 'user', content: ANALYSIS_PROMPT + trimmed + '\n---\n\nRespuesta JSON:' }
+        ]
+      })
+    });
 
     if (!resp.ok) {
       const err = await resp.json().catch(() => ({}));
       const msg = err?.error?.message || resp.statusText;
-      if (resp.status === 429) throw new Error('Límite de Gemini alcanzado (15 req/min). Espera 1 minuto e intenta de nuevo.');
-      throw new Error('Error Gemini ' + resp.status + ': ' + msg);
+      if (resp.status === 429) throw new Error('Límite de Groq alcanzado. Espera 1 minuto e intenta de nuevo.');
+      throw new Error('Error Groq ' + resp.status + ': ' + msg);
     }
 
     onProgress?.('procesando respuesta…');
     const data = await resp.json();
-    const raw = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    const raw = data?.choices?.[0]?.message?.content || '';
     const clean = raw.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '');
     const start = clean.indexOf('{');
     const end = clean.lastIndexOf('}');
-    if (start === -1 || end === -1) throw new Error('Gemini no devolvió JSON válido: ' + clean.slice(0, 200));
+    if (start === -1 || end === -1) throw new Error('Groq no devolvió JSON válido: ' + clean.slice(0, 200));
     return JSON.parse(clean.slice(start, end + 1));
   }
 
@@ -1940,7 +1939,7 @@ DOCUMENTO A ANALIZAR:
 
   // Init
   loadSettings();
-  checkGemini();
+  checkGroq();
 </script>
 </body>
 </html>
