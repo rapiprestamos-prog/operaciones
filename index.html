@@ -1,0 +1,2022 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Lex · Análisis Documental con Gemini</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;0,9..144,800;1,9..144,400&family=DM+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script>
+  if (window.pdfjsLib) {
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+  }
+</script>
+<style>
+  :root {
+    --paper: #f1e9db;
+    --paper-deep: #e6dcc8;
+    --ink: #1b1815;
+    --ink-soft: #55504a;
+    --oxblood: #732939;
+    --sepia: #8a6a3c;
+    --alert-high: #a71f2d;
+    --alert-med: #b57a1f;
+    --alert-low: #5a6b3c;
+    --font-display: 'Fraunces', Georgia, serif;
+    --font-body: 'DM Sans', system-ui, sans-serif;
+    --font-mono: 'JetBrains Mono', monospace;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    min-height: 100vh;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--font-body);
+    font-size: 16px;
+    line-height: 1.5;
+    background-image:
+      radial-gradient(circle at 20% 10%, rgba(139,107,60,0.06), transparent 50%),
+      radial-gradient(circle at 80% 90%, rgba(115,41,57,0.05), transparent 55%);
+  }
+
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0.3;
+    mix-blend-mode: multiply;
+    z-index: 1;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' /%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.35'/%3E%3C/svg%3E");
+  }
+
+  .container {
+    position: relative;
+    z-index: 2;
+    max-width: 1024px;
+    margin: 0 auto;
+    padding: 2.5rem 1.5rem;
+  }
+  @media (min-width: 768px) { .container { padding: 4rem 1.5rem; } }
+
+  .topbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+    flex-wrap: wrap;
+  }
+  .status-badge {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.4rem 0.75rem;
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--ink-soft);
+    background: rgba(255,255,255,0.4);
+    border: 1px solid var(--paper-deep);
+    border-radius: 999px;
+  }
+  .status-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--alert-high);
+    animation: pulse 2s infinite;
+  }
+  .status-badge.connected .status-dot {
+    background: var(--alert-low);
+    animation: none;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+  .settings-btn {
+    background: none;
+    border: 1px solid var(--ink-soft);
+    padding: 0.4rem 0.75rem;
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--ink);
+    cursor: pointer;
+    border-radius: 2px;
+    transition: all 0.2s;
+  }
+  .settings-btn:hover { background: var(--ink); color: var(--paper); }
+
+  header { margin-bottom: 2.5rem; }
+  @media (min-width: 768px) { header { margin-bottom: 3.5rem; } }
+
+  .eyebrow {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 1.5rem;
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.25em;
+    color: var(--oxblood);
+  }
+  .eyebrow-line { width: 32px; height: 1px; background: var(--oxblood); }
+
+  h1 {
+    font-family: var(--font-display);
+    font-weight: 400;
+    font-size: clamp(2.25rem, 6.5vw, 5rem);
+    letter-spacing: -0.02em;
+    line-height: 0.95;
+    margin-bottom: 1rem;
+  }
+  h1 em { font-weight: 400; font-style: italic; color: var(--oxblood); }
+
+  .lead {
+    max-width: 640px;
+    font-size: 1rem;
+    line-height: 1.6;
+    color: var(--ink-soft);
+  }
+  @media (min-width: 768px) { .lead { font-size: 1.125rem; } }
+
+  /* Setup gate */
+  .setup-gate {
+    padding: 2rem;
+    background: rgba(255,255,255,0.6);
+    border: 1px solid var(--ink);
+    border-radius: 4px;
+    margin-bottom: 2rem;
+  }
+  .setup-gate h2 {
+    font-family: var(--font-display);
+    font-weight: 400;
+    font-size: 1.5rem;
+    margin-bottom: 1rem;
+  }
+  .setup-gate ol { padding-left: 1.25rem; margin-bottom: 1rem; }
+  .setup-gate li { margin-bottom: 0.5rem; font-size: 0.9rem; line-height: 1.6; }
+  .setup-gate code {
+    background: var(--paper-deep);
+    padding: 0.15rem 0.4rem;
+    border-radius: 2px;
+    font-family: var(--font-mono);
+    font-size: 0.85rem;
+  }
+  .setup-gate a { color: var(--oxblood); }
+
+  .settings-panel {
+    padding: 1.5rem;
+    background: rgba(255,255,255,0.6);
+    border: 1px solid var(--ink-soft);
+    border-radius: 4px;
+    margin-bottom: 2rem;
+  }
+  .settings-row {
+    display: flex;
+    gap: 0.75rem;
+    align-items: center;
+    flex-wrap: wrap;
+    margin-bottom: 0.75rem;
+  }
+  .settings-row label {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--ink-soft);
+    min-width: 80px;
+  }
+  .settings-input {
+    flex: 1;
+    min-width: 180px;
+    padding: 0.5rem 0.75rem;
+    font-family: var(--font-mono);
+    font-size: 0.85rem;
+    background: var(--paper);
+    border: 1px solid var(--ink-soft);
+    border-radius: 2px;
+    color: var(--ink);
+    outline: none;
+  }
+  .settings-input:focus { border-color: var(--oxblood); }
+
+  .btn-primary {
+    padding: 0.6rem 1.25rem;
+    background: var(--ink);
+    color: var(--paper);
+    border: none;
+    border-radius: 2px;
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+  .btn-primary:hover { background: var(--oxblood); }
+
+  .upload-zone {
+    border: 2px dashed var(--ink-soft);
+    border-radius: 4px;
+    padding: 3rem 2rem;
+    text-align: center;
+    background: rgba(255,255,255,0.35);
+    cursor: pointer;
+    transition: all 0.3s ease;
+  }
+  .upload-zone.disabled { opacity: 0.4; pointer-events: none; }
+  .upload-zone.compact { padding: 1.5rem; }
+  .upload-zone:hover, .upload-zone.drag-over {
+    border-color: var(--oxblood);
+    background: rgba(115,41,57,0.04);
+  }
+  .upload-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 72px; height: 72px;
+    border: 1px solid var(--ink);
+    border-radius: 50%;
+    margin-bottom: 1.5rem;
+  }
+  .upload-zone.compact .upload-icon {
+    width: 40px; height: 40px; margin-bottom: 0.5rem;
+  }
+  .upload-zone.compact .upload-icon svg { width: 18px; height: 18px; }
+  .upload-title {
+    font-family: var(--font-display);
+    font-weight: 400;
+    font-size: 1.5rem;
+    margin-bottom: 0.5rem;
+  }
+  @media (min-width: 768px) { .upload-title { font-size: 1.875rem; } }
+  .upload-zone.compact .upload-title { font-size: 1.1rem; margin-bottom: 0.25rem; }
+  .upload-hint { font-family: var(--font-mono); font-size: 0.875rem; color: var(--ink-soft); }
+  .upload-zone.compact .upload-hint { font-size: 0.75rem; }
+
+  input[type="file"] { display: none; }
+
+  .error-box {
+    margin-top: 1.5rem;
+    padding: 1rem;
+    display: flex;
+    gap: 0.75rem;
+    background: #f7e5e4;
+    border-left: 3px solid var(--alert-high);
+  }
+  .error-box svg { color: var(--alert-high); flex-shrink: 0; margin-top: 2px; }
+  .error-title { color: var(--alert-high); font-weight: 600; }
+  .error-msg { font-size: 0.875rem; color: var(--ink); white-space: pre-wrap; }
+
+  .toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    margin: 2rem 0 1.5rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid var(--ink);
+  }
+  .toolbar-info {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.2em;
+    color: var(--ink-soft);
+  }
+  .toolbar-info strong { color: var(--ink); }
+  .toolbar-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    background: transparent;
+    color: var(--ink);
+    border: 1px solid var(--ink);
+    border-radius: 2px;
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    letter-spacing: 0.05em;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-transform: uppercase;
+  }
+  .btn:hover { background: var(--ink); color: var(--paper); }
+  .btn.danger { border-color: var(--oxblood); color: var(--oxblood); }
+  .btn.danger:hover { background: var(--oxblood); color: var(--paper); }
+
+  .docs { display: flex; flex-direction: column; gap: 1rem; }
+
+  .doc {
+    background: rgba(255,255,255,0.4);
+    border: 1px solid var(--paper-deep);
+    transition: all 0.2s;
+  }
+  .doc.error-state { border-color: var(--alert-high); }
+
+  .doc-head {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 1rem 1.25rem;
+    cursor: pointer;
+    user-select: none;
+  }
+  .doc-head:hover { background: rgba(255,255,255,0.3); }
+
+  .doc-status {
+    flex-shrink: 0;
+    width: 32px; height: 32px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .doc-status.loading svg { animation: spin 1s linear infinite; color: var(--oxblood); }
+  .doc-status.done svg { color: var(--alert-low); }
+  .doc-status.error svg { color: var(--alert-high); }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .doc-info { flex: 1; min-width: 0; }
+  .doc-filename {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    color: var(--ink-soft);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  .file-badge {
+    display: inline-flex;
+    padding: 0.1rem 0.4rem;
+    background: var(--ink);
+    color: var(--paper);
+    font-size: 0.6rem;
+    letter-spacing: 0.1em;
+    border-radius: 2px;
+  }
+  .file-badge.docx { background: var(--sepia); }
+  .doc-type {
+    font-family: var(--font-display);
+    font-size: 1.15rem;
+    line-height: 1.3;
+    margin-top: 0.15rem;
+  }
+  .doc-type.pending { color: var(--ink-soft); font-style: italic; font-size: 1rem; }
+  .doc-progress {
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    color: var(--ink-soft);
+    margin-top: 0.15rem;
+  }
+
+  .doc-actions { display: flex; gap: 0.5rem; flex-shrink: 0; align-items: center; }
+
+  .btn-listen-mini {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.4rem 0.75rem;
+    background: var(--ink);
+    color: var(--paper);
+    border: none;
+    border-radius: 999px;
+    font-family: var(--font-mono);
+    font-size: 0.65rem;
+    letter-spacing: 0.05em;
+    cursor: pointer;
+    transition: background 0.2s;
+    white-space: nowrap;
+  }
+  .btn-listen-mini:hover, .btn-listen-mini.playing { background: var(--oxblood); }
+
+  .btn-icon {
+    width: 32px; height: 32px;
+    display: inline-flex; align-items: center; justify-content: center;
+    background: transparent;
+    border: 1px solid var(--ink-soft);
+    border-radius: 2px;
+    cursor: pointer;
+    color: var(--ink);
+    transition: all 0.2s;
+  }
+  .btn-icon:hover { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+
+  .chevron { transition: transform 0.3s; }
+  .doc.expanded .chevron { transform: rotate(180deg); }
+
+  .doc-body { max-height: 0; overflow: hidden; transition: max-height 0.4s ease; }
+  .doc.expanded .doc-body { max-height: 20000px; }
+
+  .doc-body-inner {
+    padding: 1.5rem 1.25rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+    border-top: 1px dotted var(--paper-deep);
+  }
+
+  .section-label {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.75rem;
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.25em;
+    color: var(--ink-soft);
+  }
+
+  .summary {
+    padding: 1.25rem;
+    background: rgba(255,255,255,0.5);
+    border-left: 3px solid var(--oxblood);
+  }
+  .summary-text {
+    font-family: var(--font-display);
+    font-weight: 400;
+    font-size: 1.05rem;
+    line-height: 1.55;
+  }
+  @media (min-width: 768px) { .summary-text { font-size: 1.15rem; } }
+
+  .grid-2 {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+  @media (min-width: 640px) { .grid-2 { grid-template-columns: 1fr 1fr; } }
+
+  .card { padding: 1.25rem; background: rgba(255,255,255,0.4); }
+
+  .list-item {
+    padding-bottom: 0.75rem;
+    margin-bottom: 0.75rem;
+    border-bottom: 1px dotted var(--ink-soft);
+  }
+  .list-item:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+
+  .item-name { font-family: var(--font-display); font-size: 1rem; }
+  .item-role {
+    margin-top: 0.25rem;
+    font-family: var(--font-mono);
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--oxblood);
+  }
+  .item-date { font-family: var(--font-mono); color: var(--oxblood); font-size: 0.85rem; }
+  .item-desc { margin-top: 0.25rem; font-size: 0.85rem; color: var(--ink); }
+  .empty { font-size: 0.85rem; font-style: italic; color: var(--ink-soft); }
+
+  .clauses { display: flex; flex-direction: column; gap: 0.85rem; }
+  .clause {
+    display: flex;
+    gap: 0.85rem;
+    padding-bottom: 0.85rem;
+    border-bottom: 1px solid var(--paper-deep);
+  }
+  .clause:last-child { border-bottom: none; padding-bottom: 0; }
+  .clause-num {
+    flex-shrink: 0;
+    width: 32px; height: 32px;
+    display: flex; align-items: center; justify-content: center;
+    background: var(--ink); color: var(--paper);
+    font-family: var(--font-mono); font-size: 0.7rem;
+    border-radius: 2px;
+  }
+  .clause-title { font-family: var(--font-display); font-size: 1.05rem; font-weight: 600; }
+  .clause-detail { margin-top: 0.25rem; font-size: 0.85rem; line-height: 1.5; color: var(--ink-soft); }
+
+  .alerts { display: flex; flex-direction: column; gap: 0.5rem; }
+  .alert { padding: 0.85rem; display: flex; gap: 0.75rem; }
+  .alert.high { background: #f7e5e4; border-left: 3px solid var(--alert-high); }
+  .alert.med { background: #f7ecd4; border-left: 3px solid var(--alert-med); }
+  .alert.low { background: #ebeddc; border-left: 3px solid var(--alert-low); }
+
+  .alert-badge {
+    flex-shrink: 0;
+    align-self: flex-start;
+    padding: 0.2rem 0.45rem;
+    font-family: var(--font-mono);
+    font-size: 0.6rem;
+    letter-spacing: 0.15em;
+    color: #fff;
+  }
+  .alert-badge.high { background: var(--alert-high); }
+  .alert-badge.med { background: var(--alert-med); }
+  .alert-badge.low { background: var(--alert-low); }
+  .alert-text { font-size: 0.85rem; line-height: 1.5; color: var(--ink); }
+
+  .no-alerts {
+    padding: 1rem;
+    display: flex; align-items: center; gap: 0.75rem;
+    background: #ebeddc;
+    border-left: 3px solid var(--alert-low);
+  }
+  .no-alerts svg { color: var(--alert-low); }
+  .no-alerts p { font-size: 0.85rem; color: var(--ink); }
+
+  .recs { padding: 1.25rem; background: var(--ink); color: var(--paper); }
+  .recs .section-label { color: rgba(241,233,219,0.7); }
+  .recs ul { list-style: none; display: flex; flex-direction: column; gap: 0.6rem; }
+  .recs li { display: flex; gap: 0.75rem; font-family: var(--font-display); font-size: 1rem; }
+  .rec-arrow { font-family: var(--font-mono); color: var(--paper-deep); opacity: 0.6; }
+
+  /* Puntos importantes */
+  .key-points {
+    padding: 1.25rem;
+    background: rgba(138, 106, 60, 0.08);
+    border-left: 3px solid var(--sepia);
+  }
+  .key-points ul { list-style: none; display: flex; flex-direction: column; gap: 0.75rem; }
+  .key-points li {
+    display: flex;
+    gap: 0.75rem;
+    align-items: flex-start;
+    font-family: var(--font-display);
+    font-size: 1.05rem;
+    line-height: 1.45;
+  }
+  .key-points .dot {
+    flex-shrink: 0;
+    width: 8px; height: 8px;
+    margin-top: 0.55rem;
+    background: var(--sepia);
+    border-radius: 50%;
+  }
+
+  /* Read full document button */
+  .read-full {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 1rem 1.25rem;
+    background: rgba(115, 41, 57, 0.08);
+    border: 1px dashed var(--oxblood);
+    flex-wrap: wrap;
+  }
+  .read-full-info {
+    flex: 1;
+    min-width: 200px;
+  }
+  .read-full-title {
+    font-family: var(--font-display);
+    font-size: 1rem;
+    color: var(--ink);
+  }
+  .read-full-hint {
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    color: var(--ink-soft);
+    margin-top: 0.2rem;
+  }
+  .btn-read-full {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.5rem 1rem;
+    background: var(--oxblood);
+    color: var(--paper);
+    border: none;
+    border-radius: 999px;
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    letter-spacing: 0.05em;
+    cursor: pointer;
+    transition: background 0.2s;
+    white-space: nowrap;
+  }
+  .btn-read-full:hover { background: var(--ink); }
+  .btn-read-full.playing { background: var(--ink); }
+
+  /* ============ PRO SECTIONS ============ */
+
+  /* Executive summary - premium hero */
+  .exec-summary {
+    position: relative;
+    padding: 1.75rem;
+    background: linear-gradient(135deg, rgba(115,41,57,0.04) 0%, rgba(138,106,60,0.06) 100%);
+    border: 1px solid var(--oxblood);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+  .exec-summary::before {
+    content: '"';
+    position: absolute;
+    top: -0.5rem;
+    left: 0.5rem;
+    font-family: var(--font-display);
+    font-size: 7rem;
+    line-height: 1;
+    color: var(--oxblood);
+    opacity: 0.12;
+    pointer-events: none;
+  }
+  .exec-summary-label {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.75rem;
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.3em;
+    color: var(--oxblood);
+    font-weight: 600;
+  }
+  .exec-summary-label::before {
+    content: '';
+    width: 24px; height: 1px;
+    background: var(--oxblood);
+  }
+  .exec-summary-text {
+    font-family: var(--font-display);
+    font-weight: 400;
+    font-size: 1.15rem;
+    line-height: 1.55;
+    color: var(--ink);
+    position: relative;
+    z-index: 1;
+  }
+  @media (min-width: 768px) { .exec-summary-text { font-size: 1.25rem; } }
+  .exec-summary-actions {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 1.25rem;
+    flex-wrap: wrap;
+    position: relative;
+    z-index: 1;
+  }
+
+  /* Document header with metadata badges */
+  .doc-meta-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-top: 0.5rem;
+  }
+  .meta-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 0.25rem 0.6rem;
+    background: rgba(255,255,255,0.5);
+    border: 1px solid var(--paper-deep);
+    border-radius: 999px;
+    font-family: var(--font-mono);
+    font-size: 0.65rem;
+    letter-spacing: 0.05em;
+    color: var(--ink-soft);
+  }
+  .meta-chip strong { color: var(--ink); }
+
+  /* Status banner - document health */
+  .status-banner {
+    display: flex;
+    align-items: flex-start;
+    gap: 1rem;
+    padding: 1.25rem;
+    border-radius: 2px;
+    border: 1px solid;
+  }
+  .status-banner.critico { background: #f7e5e4; border-color: var(--alert-high); }
+  .status-banner.alto { background: #f7e5e4; border-color: var(--alert-high); }
+  .status-banner.medio { background: #f7ecd4; border-color: var(--alert-med); }
+  .status-banner.bajo { background: #ebeddc; border-color: var(--alert-low); }
+  .status-banner.ninguno { background: #ebeddc; border-color: var(--alert-low); }
+
+  .status-icon-wrap {
+    flex-shrink: 0;
+    width: 44px; height: 44px;
+    display: flex; align-items: center; justify-content: center;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.6);
+  }
+  .status-banner.critico .status-icon-wrap,
+  .status-banner.alto .status-icon-wrap { color: var(--alert-high); }
+  .status-banner.medio .status-icon-wrap { color: var(--alert-med); }
+  .status-banner.bajo .status-icon-wrap,
+  .status-banner.ninguno .status-icon-wrap { color: var(--alert-low); }
+
+  .status-content { flex: 1; }
+  .status-headline {
+    font-family: var(--font-display);
+    font-size: 1.15rem;
+    font-weight: 600;
+    margin-bottom: 0.35rem;
+  }
+  .status-text {
+    font-size: 0.9rem;
+    line-height: 1.5;
+    color: var(--ink);
+    margin-bottom: 0.75rem;
+  }
+  .status-level {
+    display: inline-block;
+    padding: 0.2rem 0.55rem;
+    font-family: var(--font-mono);
+    font-size: 0.65rem;
+    letter-spacing: 0.15em;
+    color: #fff;
+    margin-left: 0.5rem;
+    vertical-align: middle;
+  }
+  .status-level.critico, .status-level.alto { background: var(--alert-high); }
+  .status-level.medio { background: var(--alert-med); }
+  .status-level.bajo, .status-level.ninguno { background: var(--alert-low); }
+
+  .status-aspects {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0.75rem;
+    margin-top: 0.75rem;
+  }
+  @media (min-width: 640px) { .status-aspects { grid-template-columns: 1fr 1fr; } }
+  .aspects-col h4 {
+    font-family: var(--font-mono);
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    letter-spacing: 0.2em;
+    color: var(--ink-soft);
+    margin-bottom: 0.5rem;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+  .aspects-col ul { list-style: none; display: flex; flex-direction: column; gap: 0.3rem; }
+  .aspects-col li {
+    font-size: 0.85rem;
+    line-height: 1.45;
+    padding-left: 1rem;
+    position: relative;
+  }
+  .aspects-col.positive li::before {
+    content: '✓';
+    position: absolute; left: 0;
+    color: var(--alert-low);
+    font-weight: bold;
+  }
+  .aspects-col.negative li::before {
+    content: '✗';
+    position: absolute; left: 0;
+    color: var(--alert-high);
+    font-weight: bold;
+  }
+
+  /* Financial data card */
+  .finance-card {
+    padding: 1.25rem;
+    background: linear-gradient(180deg, rgba(255,255,255,0.5), rgba(138,106,60,0.05));
+    border-left: 3px solid var(--sepia);
+  }
+  .finance-main {
+    display: flex;
+    align-items: baseline;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+    padding-bottom: 0.75rem;
+    border-bottom: 1px dotted var(--ink-soft);
+    margin-bottom: 0.75rem;
+  }
+  .finance-amount {
+    font-family: var(--font-display);
+    font-size: 1.75rem;
+    font-weight: 600;
+    color: var(--ink);
+    line-height: 1.1;
+  }
+  .finance-currency {
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+    letter-spacing: 0.1em;
+    color: var(--oxblood);
+  }
+  .finance-letters {
+    font-size: 0.85rem;
+    font-style: italic;
+    color: var(--ink-soft);
+    width: 100%;
+  }
+  .finance-match {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 0.2rem 0.5rem;
+    border-radius: 2px;
+    font-family: var(--font-mono);
+    font-size: 0.65rem;
+    letter-spacing: 0.1em;
+  }
+  .finance-match.yes { background: #ebeddc; color: var(--alert-low); }
+  .finance-match.no { background: #f7e5e4; color: var(--alert-high); }
+  .finance-details {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.6rem;
+    font-size: 0.85rem;
+  }
+  .finance-row {
+    display: flex;
+    flex-direction: column;
+  }
+  .finance-row .lbl {
+    font-family: var(--font-mono);
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--ink-soft);
+    margin-bottom: 0.15rem;
+  }
+  .finance-row .val { color: var(--ink); }
+
+  /* Obligations timeline */
+  .obligations {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+  .obligation-item {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 0.75rem;
+    padding: 0.75rem;
+    background: rgba(255,255,255,0.4);
+    border-left: 2px solid var(--sepia);
+  }
+  .obligation-party {
+    font-family: var(--font-mono);
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--oxblood);
+    padding: 0.2rem 0.5rem;
+    background: rgba(115,41,57,0.08);
+    border-radius: 2px;
+    align-self: start;
+    white-space: nowrap;
+  }
+  .obligation-content {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+  }
+  .obligation-text {
+    font-size: 0.9rem;
+    line-height: 1.45;
+    color: var(--ink);
+  }
+  .obligation-deadline {
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    color: var(--ink-soft);
+  }
+
+  /* Enhanced alert with category and recommendation */
+  .alert-enhanced {
+    padding: 1rem;
+    border-left: 3px solid;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+  .alert-enhanced.high { background: #f7e5e4; border-color: var(--alert-high); }
+  .alert-enhanced.med { background: #f7ecd4; border-color: var(--alert-med); }
+  .alert-enhanced.low { background: #ebeddc; border-color: var(--alert-low); }
+  .alert-head {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+  }
+  .alert-cat {
+    font-family: var(--font-mono);
+    font-size: 0.6rem;
+    letter-spacing: 0.1em;
+    padding: 0.15rem 0.4rem;
+    background: rgba(0,0,0,0.08);
+    color: var(--ink-soft);
+    text-transform: uppercase;
+    border-radius: 2px;
+  }
+  .alert-problem {
+    font-size: 0.9rem;
+    line-height: 1.5;
+    color: var(--ink);
+  }
+  .alert-rec {
+    font-size: 0.8rem;
+    line-height: 1.45;
+    color: var(--ink-soft);
+    padding-left: 0.75rem;
+    border-left: 2px dotted var(--ink-soft);
+    font-style: italic;
+  }
+  .alert-rec::before {
+    content: 'Recomendación: ';
+    font-family: var(--font-mono);
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    font-style: normal;
+    color: var(--ink);
+  }
+
+  /* Clause importance indicator */
+  .clause.importancia-alta { border-left: 2px solid var(--alert-high); padding-left: 0.75rem; }
+  .clause.importancia-media { border-left: 2px solid var(--alert-med); padding-left: 0.75rem; }
+  .clause-tag {
+    display: inline-block;
+    padding: 0.1rem 0.35rem;
+    font-family: var(--font-mono);
+    font-size: 0.55rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    border-radius: 2px;
+    margin-left: 0.5rem;
+    vertical-align: middle;
+    color: #fff;
+  }
+  .clause-tag.alta { background: var(--alert-high); }
+  .clause-tag.media { background: var(--alert-med); }
+
+  /* Read actions row */
+  .read-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+  @media (min-width: 640px) { .read-actions { flex-direction: row; } }
+  .read-action-card {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1rem 1.25rem;
+    background: rgba(115, 41, 57, 0.06);
+    border: 1px dashed var(--oxblood);
+    transition: all 0.2s;
+  }
+  .read-action-card:hover { background: rgba(115, 41, 57, 0.1); }
+  .read-action-icon {
+    flex-shrink: 0;
+    width: 36px; height: 36px;
+    display: flex; align-items: center; justify-content: center;
+    border-radius: 50%;
+    background: var(--oxblood);
+    color: var(--paper);
+  }
+  .read-action-content { flex: 1; min-width: 0; }
+  .read-action-title {
+    font-family: var(--font-display);
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--ink);
+  }
+  .read-action-hint {
+    font-family: var(--font-mono);
+    font-size: 0.65rem;
+    color: var(--ink-soft);
+    margin-top: 0.15rem;
+  }
+
+  .doc-error-msg {
+    padding: 1rem 1.25rem;
+    color: var(--alert-high);
+    font-size: 0.875rem;
+    background: #f7e5e4;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+
+  .disclaimer {
+    padding: 2.5rem 0 0;
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    text-align: center;
+    color: var(--ink-soft);
+  }
+
+  .hidden { display: none !important; }
+  .icon-sm { width: 16px; height: 16px; flex-shrink: 0; }
+  .icon-md { width: 20px; height: 20px; flex-shrink: 0; }
+  .icon-lg { width: 28px; height: 28px; flex-shrink: 0; }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <div class="topbar">
+    <button id="statusBadge" class="status-badge" title="Estado de Gemini API">
+      <span class="status-dot"></span>
+      <span id="statusText">VERIFICANDO API KEY…</span>
+    </button>
+    <button id="settingsBtn" class="settings-btn" style="display:none">⚙ Configuración</button>
+  </div>
+
+  <header>
+    <div class="eyebrow">
+      <div class="eyebrow-line"></div>
+      Lex Pro · Análisis Forense · Gemini AI
+    </div>
+    <h1>
+      Tus documentos,<br />
+      <em>bajo el microscopio.</em>
+    </h1>
+    <p class="lead">
+      Análisis legal profundo impulsado por Gemini 2.0 Flash (Google AI).
+      Resumen ejecutivo, detección de errores, análisis financiero, obligaciones,
+      cláusulas abusivas, alertas por severidad, y lectura en voz alta del
+      resumen o del documento completo. API gratuita · hasta 1,500 análisis/día.
+    </p>
+  </header>
+
+  <!-- Setup gate (solo se muestra si hay error de conexión) -->
+  <div id="setupGate" class="setup-gate hidden">
+    <h2>Error de conexión con Gemini</h2>
+    <p style="font-size: 0.9rem; margin-bottom: 0.5rem;">No se pudo conectar con la API de Gemini. Posibles causas:</p>
+    <ol>
+      <li>Sin conexión a internet — verifica tu red.</li>
+      <li>Límite de tasa alcanzado (15 req/min en tier gratuito) — espera un momento.</li>
+      <li>La API key puede haber expirado — contacta al administrador.</li>
+    </ol>
+  </div>
+
+  <!-- Settings panel (oculto - key configurada internamente) -->
+  <div id="settingsPanel" class="settings-panel hidden" style="display:none !important">
+    <div class="settings-row">
+      <label>API Key:</label>
+      <input type="password" id="geminiKey" class="settings-input" placeholder="AIza…" autocomplete="off" />
+    </div>
+    <div class="settings-row">
+      <button class="btn-primary" id="btnSaveSettings">Guardar y verificar</button>
+    </div>
+  </div>
+
+  <div id="uploadZone" class="upload-zone disabled">
+    <input type="file" id="fileInput" accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document" multiple />
+    <div class="upload-icon">
+      <svg class="icon-lg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+        <polyline points="17 8 12 3 7 8"/>
+        <line x1="12" y1="3" x2="12" y2="15"/>
+      </svg>
+    </div>
+    <p class="upload-title">Arrastra tus documentos aquí</p>
+    <p class="upload-hint">PDF o Word (.docx) · varios a la vez · máx 20 MB c/u</p>
+  </div>
+
+  <div id="errorBox" class="error-box hidden">
+    <svg class="icon-md" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+      <line x1="12" y1="9" x2="12" y2="13"/>
+      <line x1="12" y1="17" x2="12.01" y2="17"/>
+    </svg>
+    <div>
+      <p class="error-title">Error</p>
+      <p id="errorMsg" class="error-msg"></p>
+    </div>
+  </div>
+
+  <div id="toolbar" class="toolbar hidden">
+    <div class="toolbar-info">
+      <span id="statsText"></span>
+    </div>
+    <div class="toolbar-actions">
+      <button class="btn" id="btnExpandAll">Expandir todo</button>
+      <button class="btn" id="btnCollapseAll">Contraer todo</button>
+      <button class="btn danger" id="btnClearAll">Limpiar todo</button>
+    </div>
+  </div>
+
+  <div id="docs" class="docs"></div>
+
+  <div id="uploadMore" class="upload-zone compact hidden" style="margin-top: 1rem;">
+    <input type="file" id="fileInputMore" accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document" multiple />
+    <div class="upload-icon">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="12" y1="5" x2="12" y2="19"/>
+        <line x1="5" y1="12" x2="19" y2="12"/>
+      </svg>
+    </div>
+    <p class="upload-title">Añadir más documentos</p>
+    <p class="upload-hint">PDF o Word · arrastra o haz clic</p>
+  </div>
+
+  <p id="disclaimer" class="disclaimer hidden">
+    Este análisis es informativo. No sustituye el consejo de un abogado. · Procesado con Gemini 2.0 Flash (Google AI).
+  </p>
+</div>
+
+<script>
+  const MAX_SIZE = 20 * 1024 * 1024;
+  const STORAGE_KEY = 'lex_gemini_settings';
+  const GEMINI_MODEL = 'gemini-2.0-flash';
+
+  const $ = (id) => document.getElementById(id);
+
+  let geminiApiKey = 'AIzaSyBo3eHf6smNoPA8I33ZpzmWcCkA1wEz5mw';
+  let geminiConnected = false;
+
+  const documents = new Map();
+  let nextId = 1;
+  let currentSpeech = null;
+
+  function loadSettings() { /* key fija, no se necesita */ }
+  function saveSettings() { checkGemini(); }
+
+  $('btnSaveSettings').addEventListener('click', saveSettings);
+  $('settingsBtn').addEventListener('click', () => {
+    $('settingsPanel').classList.toggle('hidden');
+  });
+
+  // ---------- Gemini check ----------
+  async function checkGemini() {
+    const badge = $('statusBadge');
+    const text = $('statusText');
+    badge.classList.remove('connected');
+    text.textContent = 'VERIFICANDO…';
+
+    if (!geminiApiKey) {
+      geminiConnected = false;
+      text.textContent = 'API KEY NO CONFIGURADA';
+      $('setupGate').classList.remove('hidden');
+      $('uploadZone').classList.add('disabled');
+      return;
+    }
+
+    try {
+      const resp = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${geminiApiKey}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: 'Responde solo: ok' }] }],
+            generationConfig: { maxOutputTokens: 5 }
+          })
+        }
+      );
+
+      if (resp.status === 400 || resp.status === 401 || resp.status === 403) {
+        const err = await resp.json().catch(() => ({}));
+        throw new Error('API Key inválida: ' + (err?.error?.message || resp.status));
+      }
+      if (!resp.ok) throw new Error('HTTP ' + resp.status);
+
+      geminiConnected = true;
+      badge.classList.add('connected');
+      text.textContent = 'GEMINI 2.0 FLASH · LISTO';
+      $('setupGate').classList.add('hidden');
+      $('uploadZone').classList.remove('disabled');
+      hideError();
+    } catch (e) {
+      geminiConnected = false;
+      text.textContent = 'ERROR DE CONEXIÓN';
+      $('setupGate').classList.remove('hidden');
+      $('uploadZone').classList.add('disabled');
+      showError(e.message);
+    }
+  }
+
+  // ---------- Upload wiring ----------
+  function wireUpload(zone, input) {
+    zone.addEventListener('click', () => {
+      if (!geminiConnected) return;
+      input.click();
+    });
+    zone.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      if (geminiConnected) zone.classList.add('drag-over');
+    });
+    zone.addEventListener('dragleave', () => zone.classList.remove('drag-over'));
+    zone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      zone.classList.remove('drag-over');
+      if (!geminiConnected) return;
+      if (e.dataTransfer.files?.length) handleFiles(e.dataTransfer.files);
+    });
+    input.addEventListener('change', (e) => {
+      if (e.target.files?.length) handleFiles(e.target.files);
+      input.value = '';
+    });
+  }
+  wireUpload($('uploadZone'), $('fileInput'));
+  wireUpload($('uploadMore'), $('fileInputMore'));
+
+  $('btnExpandAll').addEventListener('click', () => {
+    documents.forEach(d => { if (d.status === 'done') d.expanded = true; });
+    renderDocs();
+  });
+  $('btnCollapseAll').addEventListener('click', () => {
+    documents.forEach(d => { d.expanded = false; });
+    renderDocs();
+  });
+  $('btnClearAll').addEventListener('click', () => {
+    if (!confirm('¿Eliminar todos los documentos?')) return;
+    stopSpeech();
+    documents.clear();
+    renderAll();
+  });
+
+  function detectFileType(file) {
+    const name = file.name.toLowerCase();
+    if (name.endsWith('.pdf')) return 'pdf';
+    if (name.endsWith('.docx')) return 'docx';
+    if (name.endsWith('.doc')) return 'doc-legacy';
+    return 'unknown';
+  }
+
+  function handleFiles(fileList) {
+    hideError();
+    const files = Array.from(fileList);
+    const accepted = [];
+    const rejected = [];
+
+    for (const f of files) {
+      const type = detectFileType(f);
+      if (type === 'unknown') { rejected.push(`${f.name}: formato no soportado`); continue; }
+      if (type === 'doc-legacy') { rejected.push(`${f.name}: guárdalo como .docx`); continue; }
+      if (f.size > MAX_SIZE) { rejected.push(`${f.name}: excede 20 MB`); continue; }
+      accepted.push({ file: f, kind: type });
+    }
+
+    if (rejected.length) showError('No se pudieron agregar: ' + rejected.join(' · '));
+
+    // Process sequentially for reliability
+    for (const { file, kind } of accepted) {
+      const id = nextId++;
+      documents.set(id, { id, file, kind, status: 'queued', data: null, expanded: false, error: null, progress: 'En cola…' });
+    }
+    renderAll();
+    processQueue();
+  }
+
+  let processing = false;
+  async function processQueue() {
+    if (processing) return;
+    processing = true;
+    for (const doc of documents.values()) {
+      if (doc.status === 'queued') {
+        doc.status = 'loading';
+        renderAll();
+        await processDocument(doc.id);
+      }
+    }
+    processing = false;
+  }
+
+  async function processDocument(id) {
+    const doc = documents.get(id);
+    if (!doc) return;
+    try {
+      doc.progress = 'Extrayendo texto…';
+      renderAll();
+
+      let text;
+      if (doc.kind === 'pdf') {
+        text = await extractPdfText(doc.file);
+      } else if (doc.kind === 'docx') {
+        text = await extractDocxText(doc.file);
+      }
+
+      if (!text || text.trim().length < 20) {
+        throw new Error('El documento parece vacío o es un escaneo sin texto (OCR no soportado en modo local).');
+      }
+
+      // Save raw text for full-document reading
+      doc.rawText = text;
+
+      doc.progress = 'Analizando con Gemini AI…';
+      renderAll();
+
+      const result = await callGemini(text, (msg) => {
+        doc.progress = 'Analizando… ' + msg;
+        renderAll();
+      });
+
+      const current = documents.get(id);
+      if (!current) return;
+      current.status = 'done';
+      current.data = result;
+      current.progress = null;
+      current.expanded = documents.size <= 3;
+      renderAll();
+    } catch (e) {
+      console.error(e);
+      const current = documents.get(id);
+      if (!current) return;
+      current.status = 'error';
+      current.error = e.message || String(e);
+      current.progress = null;
+      renderAll();
+    }
+  }
+
+  async function extractPdfText(file) {
+    const buffer = await file.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({ data: buffer }).promise;
+    let fullText = '';
+    for (let i = 1; i <= pdf.numPages; i++) {
+      const page = await pdf.getPage(i);
+      const content = await page.getTextContent();
+      const pageText = content.items.map(item => item.str).join(' ');
+      fullText += pageText + '\n\n';
+    }
+    return fullText.trim();
+  }
+
+  async function extractDocxText(file) {
+    const buffer = await file.arrayBuffer();
+    const result = await window.mammoth.extractRawText({ arrayBuffer: buffer });
+    return result.value;
+  }
+
+  const ANALYSIS_PROMPT = `Eres un abogado senior experto en análisis forense de documentos legales en español (contratos, escrituras, pagarés, actas, poderes, convenios, hipotecas, finiquitos, cartas de cobro, etc.). Tu análisis debe ser exhaustivo, crítico y profesional.
+
+Responde ÚNICAMENTE con JSON válido (sin markdown, sin bloques de código, sin explicaciones fuera del JSON).
+
+Estructura EXACTA (rellena TODOS los campos, usa arrays vacíos si no aplica):
+
+{
+  "tipoDocumento": "tipo específico y completo del documento",
+  "subtipo": "subclasificación si aplica (ej: Pagaré a la orden, Contrato bilateral, Escritura pública protocolizada)",
+  "jurisdiccion": "país o jurisdicción identificable en el documento, o 'No especificada'",
+
+  "resumenEjecutivo": "Resumen ejecutivo de 4-6 oraciones bien redactadas. Debe responder: ¿qué es?, ¿qué establece?, ¿quiénes son las partes principales?, ¿cuáles son las obligaciones principales?, ¿cuáles son las consecuencias si se incumple? Usa lenguaje profesional pero claro.",
+
+  "resumen": "Resumen corto de 2 oraciones para vista rápida",
+
+  "puntosImportantes": ["7 a 10 puntos concretos y accionables de lo MÁS crítico: montos exactos, plazos, obligaciones, consecuencias, garantías. Frases cortas y directas."],
+
+  "estadoDocumento": {
+    "tieneErrores": true | false,
+    "nivelRiesgo": "crítico" | "alto" | "medio" | "bajo" | "ninguno",
+    "resumenEstado": "1-2 oraciones resumiendo si el documento está bien o si tiene problemas que requieren atención inmediata",
+    "aspectosPositivos": ["lista de lo que SÍ está bien redactado/completo"],
+    "aspectosNegativos": ["lista de lo que está mal, faltante o es problemático"]
+  },
+
+  "partes": [
+    { "nombre": "nombre completo o razón social", "rol": "rol exacto", "identificacion": "cédula/RUC/pasaporte si aparece", "representante": "quién lo representa si aplica" }
+  ],
+
+  "datosFinancieros": {
+    "moneda": "USD, EUR, etc. o 'N/A'",
+    "montoPrincipal": "monto principal del documento o 'N/A'",
+    "montoEnLetras": "el mismo monto escrito en letras o 'N/A'",
+    "coincideLetraCifra": true | false | null,
+    "tasaInteres": "tasa de interés si aplica o 'N/A'",
+    "intereses": "descripción de intereses si aplican",
+    "otrosMontos": [{"concepto": "...", "valor": "..."}]
+  },
+
+  "fechasClave": [
+    { "fecha": "fecha legible", "descripcion": "qué representa", "tipo": "firma|vencimiento|inicio|fin|plazo|otro" }
+  ],
+
+  "obligaciones": [
+    { "parte": "quién debe cumplir", "obligacion": "qué debe hacer", "plazo": "cuándo o 'No especificado'" }
+  ],
+
+  "clausulasClave": [
+    { "titulo": "título corto", "detalle": "explicación simple y completa", "importancia": "alta|media|baja" }
+  ],
+
+  "alertas": [
+    { "severidad": "alta" | "media" | "baja", "categoria": "legal|financiera|formal|temporal|otra", "problema": "descripción clara del error, inconsistencia, cláusula abusiva o riesgo", "recomendacion": "qué hacer al respecto" }
+  ],
+
+  "recomendaciones": ["5 a 8 acciones concretas recomendadas, en orden de prioridad"],
+
+  "lecturaVoz": "Narración natural de 6-8 oraciones para LEER EN VOZ ALTA. Escribe como si un abogado le explicara al cliente en persona. Evita siglas, caracteres especiales, o números muy largos. Incluye lo más importante y las alertas críticas."
+}
+
+CRITERIOS DE ANÁLISIS RIGUROSO:
+- Verifica SIEMPRE coherencia entre monto en letras y en cifras
+- Detecta fechas incoherentes o imposibles
+- Identifica firmas o sellos ausentes
+- Señala cláusulas abusivas (intereses excesivos, renuncia a derechos, jurisdicciones desproporcionadas)
+- Detecta identificaciones incompletas (falta cédula, RUC, dirección)
+- Identifica referencias a leyes derogadas o inexactas
+- Señala falta de testigos cuando el documento los requiere
+- Verifica que las partes estén correctamente capacitadas
+
+Si el documento está perfecto, usa "nivelRiesgo": "ninguno" y lista aspectos positivos. No inventes problemas que no existan.
+
+DOCUMENTO A ANALIZAR:
+---
+`;
+
+  async function callGemini(text, onProgress) {
+    // Gemini 2.0 Flash supports up to 1M tokens; we trim generously at 200K chars
+    const MAX_CHARS = 200000;
+    const trimmed = text.length > MAX_CHARS
+      ? text.slice(0, MAX_CHARS) + '\n\n[... documento truncado por tamaño ...]'
+      : text;
+
+    onProgress?.('enviando documento…');
+
+    const resp = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${geminiApiKey}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{
+            parts: [{
+              text: ANALYSIS_PROMPT + trimmed + '\n---\n\nRespuesta JSON:'
+            }]
+          }],
+          generationConfig: {
+            temperature: 0.2,
+            maxOutputTokens: 8192,
+            responseMimeType: 'application/json'
+          }
+        })
+      }
+    );
+
+    if (!resp.ok) {
+      const err = await resp.json().catch(() => ({}));
+      const msg = err?.error?.message || resp.statusText;
+      if (resp.status === 429) throw new Error('Límite de tasa alcanzado (15 req/min en tier gratuito). Espera un momento e intenta de nuevo.');
+      throw new Error(`Gemini respondió con error ${resp.status}: ${msg}`);
+    }
+
+    onProgress?.('procesando respuesta…');
+
+    const data = await resp.json();
+    const raw = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+
+    const clean = raw.trim()
+      .replace(/^```(?:json)?\s*/i, '')
+      .replace(/\s*```$/i, '');
+
+    const start = clean.indexOf('{');
+    const end = clean.lastIndexOf('}');
+    if (start === -1 || end === -1) {
+      throw new Error('Gemini no respondió en formato JSON válido. Respuesta: ' + clean.slice(0, 300));
+    }
+    try {
+      return JSON.parse(clean.slice(start, end + 1));
+    } catch (e) {
+      throw new Error('Error parseando JSON de Gemini. Respuesta: ' + clean.slice(0, 300));
+    }
+  }
+
+  function showError(msg) { $('errorMsg').textContent = msg; $('errorBox').classList.remove('hidden'); }
+  function hideError() { $('errorBox').classList.add('hidden'); }
+
+  function renderAll() {
+    const hasDocs = documents.size > 0;
+    $('uploadZone').classList.toggle('hidden', hasDocs);
+    $('uploadMore').classList.toggle('hidden', !hasDocs || !geminiConnected);
+    $('toolbar').classList.toggle('hidden', !hasDocs);
+    $('disclaimer').classList.toggle('hidden', !hasDocs);
+    if (hasDocs) updateStats();
+    renderDocs();
+  }
+
+  function updateStats() {
+    const total = documents.size;
+    let done = 0, loading = 0, queued = 0, error = 0;
+    documents.forEach(d => {
+      if (d.status === 'done') done++;
+      else if (d.status === 'loading') loading++;
+      else if (d.status === 'queued') queued++;
+      else if (d.status === 'error') error++;
+    });
+    const parts = [`<strong>${total}</strong> ${total === 1 ? 'documento' : 'documentos'}`];
+    if (loading) parts.push(`<strong>${loading}</strong> procesando`);
+    if (queued) parts.push(`<strong>${queued}</strong> en cola`);
+    if (done) parts.push(`<strong>${done}</strong> listo${done === 1 ? '' : 's'}`);
+    if (error) parts.push(`<strong>${error}</strong> con error`);
+    $('statsText').innerHTML = parts.join(' · ');
+  }
+
+  function renderDocs() {
+    const el = $('docs');
+    el.innerHTML = '';
+    const sorted = Array.from(documents.values()).sort((a, b) => a.id - b.id);
+    for (const doc of sorted) el.appendChild(renderDocCard(doc));
+  }
+
+  function renderDocCard(doc) {
+    const el = document.createElement('div');
+    el.className = 'doc' + (doc.expanded ? ' expanded' : '') + (doc.status === 'error' ? ' error-state' : '');
+
+    const statusIcon = (doc.status === 'loading' || doc.status === 'queued')
+      ? `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" width="20" height="20"><line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="4.93" y1="4.93" x2="7.76" y2="7.76"/><line x1="16.24" y1="16.24" x2="19.07" y2="19.07"/><line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/><line x1="4.93" y1="19.07" x2="7.76" y2="16.24"/><line x1="16.24" y1="7.76" x2="19.07" y2="4.93"/></svg>`
+      : doc.status === 'done'
+      ? `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="20" height="20"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>`
+      : `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="20" height="20"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>`;
+
+    const statusClass = doc.status === 'queued' ? 'loading' : doc.status;
+
+    let typeText;
+    if (doc.status === 'done') {
+      const baseType = escapeHTML(doc.data.tipoDocumento || '(sin tipo)');
+      const estado = doc.data.estadoDocumento || doc.data.estado_documento || doc.data.estado || {};
+      const nr = (estado.nivelRiesgo || estado.nivel_riesgo || estado.riesgo || '').toLowerCase();
+      let chip = '';
+      if (nr === 'critico' || nr === 'alto') {
+        chip = `<span class="status-level ${nr}" style="margin-left:0.5rem;vertical-align:middle;font-size:0.55rem;">⚠ ${nr.toUpperCase()}</span>`;
+      } else if (nr === 'medio') {
+        chip = `<span class="status-level medio" style="margin-left:0.5rem;vertical-align:middle;font-size:0.55rem;">⚠ MEDIO</span>`;
+      } else if (nr === 'ninguno' || nr === 'bajo') {
+        chip = `<span class="status-level ${nr}" style="margin-left:0.5rem;vertical-align:middle;font-size:0.55rem;">✓ OK</span>`;
+      }
+      typeText = baseType + chip;
+    } else if (doc.status === 'loading') {
+      typeText = 'Procesando…';
+    } else if (doc.status === 'queued') {
+      typeText = 'En cola';
+    } else {
+      typeText = 'No se pudo analizar';
+    }
+
+    const progressLine = doc.progress
+      ? `<div class="doc-progress">${escapeHTML(doc.progress)}</div>` : '';
+
+    const isPlaying = currentSpeech?.id === doc.id && currentSpeech?.mode === 'summary';
+    const listenBtn = (doc.status === 'done')
+      ? `<button class="btn-listen-mini${isPlaying ? ' playing' : ''}" data-act="listen" data-id="${doc.id}">
+          ${isPlaying
+            ? `<svg viewBox="0 0 24 24" fill="currentColor" width="12" height="12"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>DETENER`
+            : `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="12" height="12"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>ESCUCHAR`}
+        </button>` : '';
+
+    const chevron = (doc.status === 'done')
+      ? `<button class="btn-icon" data-act="toggle" data-id="${doc.id}"><svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><polyline points="6 9 12 15 18 9"/></svg></button>` : '';
+
+    const deleteBtn = `<button class="btn-icon" data-act="delete" data-id="${doc.id}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6m5 0V4a2 2 0 0 1 2-2h0a2 2 0 0 1 2 2v2"/></svg></button>`;
+
+    const fileBadge = `<span class="file-badge ${doc.kind}">${doc.kind.toUpperCase()}</span>`;
+
+    let bodyHTML = '';
+    if (doc.status === 'done') {
+      bodyHTML = `<div class="doc-body"><div class="doc-body-inner">${renderAnalysisBody(doc.data, doc.id)}</div></div>`;
+    } else if (doc.status === 'error') {
+      bodyHTML = `<div class="doc-error-msg">${escapeHTML(doc.error || 'Error desconocido')}</div>`;
+    }
+
+    el.innerHTML = `
+      <div class="doc-head" data-act="toggle" data-id="${doc.id}">
+        <div class="doc-status ${statusClass}">${statusIcon}</div>
+        <div class="doc-info">
+          <div class="doc-filename">${fileBadge}<span>${escapeHTML(doc.file.name)}</span></div>
+          <div class="doc-type ${doc.status !== 'done' ? 'pending' : ''}">${typeText}</div>
+          ${progressLine}
+        </div>
+        <div class="doc-actions">${listenBtn}${chevron}${deleteBtn}</div>
+      </div>
+      ${bodyHTML}
+    `;
+
+    el.querySelectorAll('[data-act]').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const act = btn.dataset.act;
+        const id = parseInt(btn.dataset.id, 10);
+        if (act === 'toggle') toggleDoc(id);
+        else if (act === 'delete') deleteDoc(id);
+        else if (act === 'listen') toggleSpeech(id);
+        else if (act === 'read-full') toggleReadFull(id);
+        else if (act === 'read-exec') toggleReadExec(id);
+      });
+    });
+
+    return el;
+  }
+
+  function renderAnalysisBody(a, docId) {
+    // Helper: get first non-empty value from multiple possible field names
+    const pick = (obj, ...keys) => {
+      for (const k of keys) {
+        const v = obj?.[k];
+        if (v != null && String(v).trim()) return String(v);
+      }
+      return '';
+    };
+
+    const isReadingExec = currentSpeech?.id === docId && currentSpeech?.mode === 'exec';
+    const isReadingSummary = currentSpeech?.id === docId && currentSpeech?.mode === 'summary';
+    const isReadingFull = currentSpeech?.id === docId && currentSpeech?.mode === 'full';
+
+    // ===== EXECUTIVE SUMMARY (hero section) =====
+    const execText = a.resumenEjecutivo || a.resumen_ejecutivo || a.executiveSummary || a.resumen || '';
+    const execHTML = execText ? `
+      <section class="exec-summary">
+        <div class="exec-summary-label">Resumen ejecutivo</div>
+        <p class="exec-summary-text">${escapeHTML(execText)}</p>
+        <div class="exec-summary-actions">
+          <button class="btn-read-full ${isReadingExec ? 'playing' : ''}" data-act="read-exec" data-id="${docId}">
+            ${isReadingExec
+              ? `<svg viewBox="0 0 24 24" fill="currentColor" width="12" height="12"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>DETENER`
+              : `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="12" height="12"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>ESCUCHAR RESUMEN EJECUTIVO`}
+          </button>
+        </div>
+      </section>` : '';
+
+    // ===== METADATA CHIPS =====
+    const chips = [];
+    if (a.subtipo) chips.push(`<span class="meta-chip">Subtipo: <strong>${escapeHTML(a.subtipo)}</strong></span>`);
+    if (a.jurisdiccion && a.jurisdiccion.toLowerCase() !== 'no especificada' && a.jurisdiccion !== 'N/A') {
+      chips.push(`<span class="meta-chip">Jurisdicción: <strong>${escapeHTML(a.jurisdiccion)}</strong></span>`);
+    }
+    const chipsHTML = chips.length ? `<div class="doc-meta-row">${chips.join('')}</div>` : '';
+
+    // ===== DOCUMENT STATUS BANNER =====
+    const estado = a.estadoDocumento || a.estado_documento || a.estado || {};
+    const nivelRiesgo = (pick(estado, 'nivelRiesgo', 'nivel_riesgo', 'riesgo') || 'bajo').toLowerCase();
+    const resumenEstado = pick(estado, 'resumenEstado', 'resumen_estado', 'resumen', 'descripcion');
+    const aspectosPositivos = (estado.aspectosPositivos || estado.aspectos_positivos || estado.positivos || [])
+      .map(x => typeof x === 'string' ? x : pick(x, 'texto', 'aspecto', 'descripcion')).filter(Boolean);
+    const aspectosNegativos = (estado.aspectosNegativos || estado.aspectos_negativos || estado.negativos || [])
+      .map(x => typeof x === 'string' ? x : pick(x, 'texto', 'aspecto', 'descripcion')).filter(Boolean);
+
+    let statusIcon, statusHeadline;
+    const riesgoValid = ['critico', 'alto', 'medio', 'bajo', 'ninguno'].includes(nivelRiesgo) ? nivelRiesgo : 'bajo';
+    if (riesgoValid === 'ninguno' || riesgoValid === 'bajo') {
+      statusIcon = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>`;
+      statusHeadline = riesgoValid === 'ninguno' ? 'Documento en buen estado' : 'Pocos puntos a revisar';
+    } else if (riesgoValid === 'medio') {
+      statusIcon = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>`;
+      statusHeadline = 'Requiere revisión';
+    } else {
+      statusIcon = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>`;
+      statusHeadline = riesgoValid === 'critico' ? 'Problemas críticos detectados' : 'Problemas importantes detectados';
+    }
+
+    const hasAspects = aspectosPositivos.length || aspectosNegativos.length;
+    const aspectsHTML = hasAspects ? `
+      <div class="status-aspects">
+        ${aspectosPositivos.length ? `
+          <div class="aspects-col positive">
+            <h4>Lo que está bien</h4>
+            <ul>${aspectosPositivos.map(a => `<li>${escapeHTML(a)}</li>`).join('')}</ul>
+          </div>` : ''}
+        ${aspectosNegativos.length ? `
+          <div class="aspects-col negative">
+            <h4>Lo que está mal o falta</h4>
+            <ul>${aspectosNegativos.map(a => `<li>${escapeHTML(a)}</li>`).join('')}</ul>
+          </div>` : ''}
+      </div>` : '';
+
+    const statusBannerHTML = (resumenEstado || hasAspects) ? `
+      <section class="status-banner ${riesgoValid}">
+        <div class="status-icon-wrap">${statusIcon}</div>
+        <div class="status-content">
+          <div class="status-headline">
+            ${statusHeadline}
+            <span class="status-level ${riesgoValid}">${riesgoValid.toUpperCase()}</span>
+          </div>
+          ${resumenEstado ? `<p class="status-text">${escapeHTML(resumenEstado)}</p>` : ''}
+          ${aspectsHTML}
+        </div>
+      </section>` : '';
+
+    // ===== KEY POINTS =====
+    const puntosImpItems = (a.puntosImportantes || a.puntos_importantes || a.puntosClave || [])
+      .map(p => typeof p === 'string' ? p : pick(p, 'punto', 'texto', 'descripcion', 'detalle'))
+      .filter(Boolean);
+    const puntosHTML = puntosImpItems.length ? `
+      <section class="key-points">
+        <div class="section-label">Puntos importantes — lo que debes recordar</div>
+        <ul>
+          ${puntosImpItems.map(p => `<li><span class="dot"></span><span>${escapeHTML(p)}</span></li>`).join('')}
+        </ul>
+      </section>` : '';
+
+    // ===== PARTIES (enhanced) =====
+    const partesHTML = a.partes?.length
+      ? a.partes.map(p => {
+          const nombre = pick(p, 'nombre', 'name', 'parte');
+          const rol = pick(p, 'rol', 'role', 'tipo', 'cargo', 'posicion');
+          const ident = pick(p, 'identificacion', 'cedula', 'ruc', 'pasaporte', 'id');
+          const representante = pick(p, 'representante', 'representado_por');
+          if (!nombre && !rol && !ident) return '';
+          return `<div class="list-item">
+            <p class="item-name">${escapeHTML(nombre || '(sin nombre)')}</p>
+            ${rol ? `<p class="item-role">${escapeHTML(rol)}</p>` : ''}
+            ${ident ? `<p class="item-desc" style="font-family:var(--font-mono);font-size:0.7rem;margin-top:0.2rem;">ID: ${escapeHTML(ident)}</p>` : ''}
+            ${representante ? `<p class="item-desc" style="font-size:0.75rem;margin-top:0.2rem;">Representante: ${escapeHTML(representante)}</p>` : ''}
+          </div>`;
+        }).filter(Boolean).join('') || `<p class="empty">No identificadas.</p>`
+      : `<p class="empty">No identificadas.</p>`;
+
+    // ===== DATES (enhanced with type) =====
+    const fechasHTML = a.fechasClave?.length
+      ? a.fechasClave.map(f => {
+          const fecha = pick(f, 'fecha', 'date', 'dia');
+          const descripcion = pick(f, 'descripcion', 'description', 'detalle', 'concepto', 'evento');
+          const tipo = pick(f, 'tipo', 'type');
+          if (!fecha && !descripcion) return '';
+          return `<div class="list-item">
+            ${fecha ? `<p class="item-date">${escapeHTML(fecha)}${tipo ? ` <span style="opacity:0.6;font-size:0.7rem">· ${escapeHTML(tipo)}</span>` : ''}</p>` : ''}
+            ${descripcion ? `<p class="item-desc">${escapeHTML(descripcion)}</p>` : ''}
+          </div>`;
+        }).filter(Boolean).join('') || `<p class="empty">Sin fechas relevantes.</p>`
+      : `<p class="empty">Sin fechas relevantes.</p>`;
+
+    // ===== FINANCIAL DATA =====
+    const fin = a.datosFinancieros || a.datos_financieros || a.financieros || {};
+    const monto = pick(fin, 'montoPrincipal', 'monto_principal', 'monto', 'amount');
+    const moneda = pick(fin, 'moneda', 'currency') || '';
+    const letras = pick(fin, 'montoEnLetras', 'monto_letras', 'montoLetras', 'amountLetters');
+    const coincide = fin.coincideLetraCifra ?? fin.coincide_letra_cifra;
+    const tasaInt = pick(fin, 'tasaInteres', 'tasa_interes', 'tasa', 'interestRate');
+    const intereses = pick(fin, 'intereses', 'interest');
+    const otros = (fin.otrosMontos || fin.otros_montos || [])
+      .map(x => typeof x === 'string' ? { concepto: '', valor: x } : {
+        concepto: pick(x, 'concepto', 'nombre', 'descripcion'),
+        valor: pick(x, 'valor', 'monto', 'cantidad')
+      }).filter(x => x.concepto || x.valor);
+
+    const hasFinance = (monto && monto !== 'N/A') || letras || tasaInt || intereses || otros.length;
+    const financeHTML = hasFinance ? `
+      <section class="finance-card">
+        <div class="section-label">Datos financieros</div>
+        ${monto && monto !== 'N/A' ? `
+          <div class="finance-main">
+            <span class="finance-amount">${escapeHTML(monto)}</span>
+            ${moneda && moneda !== 'N/A' ? `<span class="finance-currency">${escapeHTML(moneda)}</span>` : ''}
+            ${coincide === false ? `<span class="finance-match no">✗ Letra y cifra NO coinciden</span>` : ''}
+            ${coincide === true ? `<span class="finance-match yes">✓ Letra y cifra coinciden</span>` : ''}
+            ${letras ? `<div class="finance-letters">"${escapeHTML(letras)}"</div>` : ''}
+          </div>` : ''}
+        <div class="finance-details">
+          ${tasaInt && tasaInt !== 'N/A' ? `<div class="finance-row"><span class="lbl">Tasa de interés</span><span class="val">${escapeHTML(tasaInt)}</span></div>` : ''}
+          ${intereses ? `<div class="finance-row"><span class="lbl">Intereses</span><span class="val">${escapeHTML(intereses)}</span></div>` : ''}
+          ${otros.map(o => `<div class="finance-row"><span class="lbl">${escapeHTML(o.concepto || 'Otro')}</span><span class="val">${escapeHTML(o.valor)}</span></div>`).join('')}
+        </div>
+      </section>` : '';
+
+    // ===== OBLIGATIONS =====
+    const obligItems = (a.obligaciones || [])
+      .map(o => ({
+        parte: pick(o, 'parte', 'quien', 'sujeto'),
+        obligacion: pick(o, 'obligacion', 'obligación', 'deber', 'descripcion'),
+        plazo: pick(o, 'plazo', 'cuando', 'vencimiento')
+      }))
+      .filter(o => o.obligacion);
+    const obligHTML = obligItems.length ? `
+      <section>
+        <div class="section-label">Obligaciones</div>
+        <div class="obligations">
+          ${obligItems.map(o => `
+            <div class="obligation-item">
+              <span class="obligation-party">${escapeHTML(o.parte || 'Parte')}</span>
+              <div class="obligation-content">
+                <span class="obligation-text">${escapeHTML(o.obligacion)}</span>
+                ${o.plazo && o.plazo !== 'No especificado' ? `<span class="obligation-deadline">⏱ ${escapeHTML(o.plazo)}</span>` : ''}
+              </div>
+            </div>`).join('')}
+        </div>
+      </section>` : '';
+
+    // ===== CLAUSES (with importance) =====
+    const clausulasHTML = a.clausulasClave?.length ? `
+      <section>
+        <div class="section-label">Cláusulas clave</div>
+        <div class="clauses">
+          ${a.clausulasClave.map((c, i) => {
+            const titulo = pick(c, 'titulo', 'title', 'nombre', 'clausula');
+            const detalle = pick(c, 'detalle', 'descripcion', 'explicacion', 'contenido', 'texto');
+            const importancia = (pick(c, 'importancia', 'importance') || '').toLowerCase();
+            if (!titulo && !detalle) return '';
+            const impTag = importancia === 'alta' ? '<span class="clause-tag alta">CRÍTICA</span>' :
+                           importancia === 'media' ? '<span class="clause-tag media">IMPORTANTE</span>' : '';
+            return `<div class="clause ${importancia ? 'importancia-' + importancia : ''}">
+              <div class="clause-num">${String(i + 1).padStart(2, '0')}</div>
+              <div>${titulo ? `<p class="clause-title">${escapeHTML(titulo)}${impTag}</p>` : ''}${detalle ? `<p class="clause-detail">${escapeHTML(detalle)}</p>` : ''}</div>
+            </div>`;
+          }).filter(Boolean).join('')}
+        </div>
+      </section>` : '';
+
+    // ===== ALERTS (enhanced with category and recommendation) =====
+    const alertasItems = (a.alertas || []).map(al => {
+      const text = pick(al, 'problema', 'descripcion', 'detalle', 'mensaje', 'texto', 'alerta');
+      const sev = pick(al, 'severidad', 'nivel', 'tipo', 'prioridad');
+      const categoria = pick(al, 'categoria', 'category');
+      const rec = pick(al, 'recomendacion', 'recommendation', 'accion', 'solucion');
+      return text ? { text, sev, categoria, rec } : null;
+    }).filter(Boolean);
+
+    const alertasHTML = alertasItems.length ? `
+      <section>
+        <div class="section-label">Alertas y posibles errores</div>
+        <div class="alerts">
+          ${alertasItems.map(al => {
+            const s = severityClass(al.sev);
+            return `<div class="alert-enhanced ${s.cls}">
+              <div class="alert-head">
+                <span class="alert-badge ${s.cls}">${s.label}</span>
+                ${al.categoria ? `<span class="alert-cat">${escapeHTML(al.categoria)}</span>` : ''}
+              </div>
+              <p class="alert-problem">${escapeHTML(al.text)}</p>
+              ${al.rec ? `<p class="alert-rec">${escapeHTML(al.rec)}</p>` : ''}
+            </div>`;
+          }).join('')}
+        </div>
+      </section>`
+      : `<section class="no-alerts">
+          <svg class="icon-md" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+          <p>No se detectaron errores evidentes en el documento.</p>
+        </section>`;
+
+    // ===== RECOMMENDATIONS =====
+    const recsItems = (a.recomendaciones || a.recomendacion || [])
+      .map(r => typeof r === 'string' ? r : pick(r, 'texto', 'recomendacion', 'detalle', 'accion'))
+      .filter(Boolean);
+    const recsHTML = recsItems.length ? `
+      <section class="recs">
+        <div class="section-label">Recomendaciones</div>
+        <ul>${recsItems.map(r => `<li><span class="rec-arrow">→</span><span>${escapeHTML(r)}</span></li>`).join('')}</ul>
+      </section>` : '';
+
+    // ===== READ ACTIONS (summary voice + full document) =====
+    const readActionsHTML = `
+      <div class="read-actions">
+        <div class="read-action-card">
+          <div class="read-action-icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
+          </div>
+          <div class="read-action-content">
+            <div class="read-action-title">Resumen narrado</div>
+            <div class="read-action-hint">Lectura natural del análisis</div>
+          </div>
+          <button class="btn-read-full ${isReadingSummary ? 'playing' : ''}" data-act="listen" data-id="${docId}">
+            ${isReadingSummary
+              ? `<svg viewBox="0 0 24 24" fill="currentColor" width="12" height="12"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>DETENER`
+              : `ESCUCHAR`}
+          </button>
+        </div>
+        <div class="read-action-card">
+          <div class="read-action-icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+          </div>
+          <div class="read-action-content">
+            <div class="read-action-title">Documento completo</div>
+            <div class="read-action-hint">Lee todo el texto original</div>
+          </div>
+          <button class="btn-read-full ${isReadingFull ? 'playing' : ''}" data-act="read-full" data-id="${docId}">
+            ${isReadingFull
+              ? `<svg viewBox="0 0 24 24" fill="currentColor" width="12" height="12"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>DETENER`
+              : `LEER TODO`}
+          </button>
+        </div>
+      </div>`;
+
+    return `
+      ${chipsHTML}
+      ${execHTML}
+      ${statusBannerHTML}
+      ${puntosHTML}
+      ${financeHTML}
+      <div class="grid-2">
+        <section class="card"><div class="section-label">Partes involucradas</div>${partesHTML}</section>
+        <section class="card"><div class="section-label">Fechas clave</div>${fechasHTML}</section>
+      </div>
+      ${obligHTML}
+      ${clausulasHTML}
+      ${alertasHTML}
+      ${recsHTML}
+      ${readActionsHTML}
+    `;
+  }
+
+  function severityClass(sev) {
+    const s = (sev || '').toLowerCase();
+    if (s === 'alta') return { cls: 'high', label: 'ALTA' };
+    if (s === 'media') return { cls: 'med', label: 'MEDIA' };
+    return { cls: 'low', label: 'BAJA' };
+  }
+
+  function escapeHTML(s) {
+    return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
+
+  function toggleDoc(id) {
+    const doc = documents.get(id);
+    if (!doc || doc.status !== 'done') return;
+    doc.expanded = !doc.expanded;
+    renderDocs();
+  }
+
+  function deleteDoc(id) {
+    if (currentSpeech?.id === id) stopSpeech();
+    documents.delete(id);
+    renderAll();
+  }
+
+  function stopSpeech() {
+    window.speechSynthesis?.cancel();
+    currentSpeech = null;
+  }
+
+  function speakLongText(text, id, mode) {
+    // SpeechSynthesis chokes on very long text. Split into chunks of ~200 chars on sentence boundaries.
+    const chunks = [];
+    const MAX_CHUNK = 220;
+    const sentences = text.split(/([.!?]+\s+)/);
+    let current = '';
+    for (const s of sentences) {
+      if ((current + s).length > MAX_CHUNK && current.length > 0) {
+        chunks.push(current.trim());
+        current = s;
+      } else {
+        current += s;
+      }
+    }
+    if (current.trim()) chunks.push(current.trim());
+
+    let idx = 0;
+    const speakNext = () => {
+      if (idx >= chunks.length || !currentSpeech || currentSpeech.id !== id) {
+        currentSpeech = null;
+        renderDocs();
+        return;
+      }
+      const u = new SpeechSynthesisUtterance(chunks[idx]);
+      u.lang = 'es-ES';
+      u.rate = 0.95;
+      u.onend = () => {
+        idx++;
+        speakNext();
+      };
+      u.onerror = () => {
+        currentSpeech = null;
+        renderDocs();
+      };
+      currentSpeech = { id, utterance: u, mode };
+      window.speechSynthesis.speak(u);
+    };
+
+    currentSpeech = { id, mode };
+    renderDocs();
+    speakNext();
+  }
+
+  function toggleSpeech(id) {
+    const doc = documents.get(id);
+    if (!doc || !doc.data?.lecturaVoz) return;
+    if (currentSpeech?.id === id && currentSpeech?.mode === 'summary') {
+      stopSpeech();
+      renderDocs();
+      return;
+    }
+    stopSpeech();
+    speakLongText(doc.data.lecturaVoz, id, 'summary');
+  }
+
+  function toggleReadFull(id) {
+    const doc = documents.get(id);
+    if (!doc || !doc.rawText) return;
+    if (currentSpeech?.id === id && currentSpeech?.mode === 'full') {
+      stopSpeech();
+      renderDocs();
+      return;
+    }
+    stopSpeech();
+    speakLongText(doc.rawText, id, 'full');
+  }
+
+  function toggleReadExec(id) {
+    const doc = documents.get(id);
+    if (!doc || !doc.data) return;
+    const text = doc.data.resumenEjecutivo || doc.data.resumen_ejecutivo || doc.data.executiveSummary || doc.data.resumen;
+    if (!text) return;
+    if (currentSpeech?.id === id && currentSpeech?.mode === 'exec') {
+      stopSpeech();
+      renderDocs();
+      return;
+    }
+    stopSpeech();
+    speakLongText(text, id, 'exec');
+  }
+
+  // Init
+  loadSettings();
+  checkGemini();
+  setInterval(checkGemini, 60000); // re-check every 60s
+</script>
+</body>
+</html>
