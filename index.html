@@ -11,201 +11,206 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
-  :root {
-    --paper: #f1e9db;
-    --paper-deep: #e6dcc8;
-    --ink: #1b1815;
-    --ink-soft: #55504a;
-    --oxblood: #732939;
-    --sepia: #8a6a3c;
-    --alert-high: #a71f2d;
-    --alert-med: #b57a1f;
-    --alert-low: #5a6b3c;
-    --font-display: 'Fraunces', Georgia, serif;
-    --font-body: 'DM Sans', system-ui, sans-serif;
-    --font-mono: 'JetBrains Mono', monospace;
-  }
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  html, body {
-    min-height: 100vh; background: var(--paper); color: var(--ink);
-    font-family: var(--font-body); font-size: 16px; line-height: 1.5;
-    background-image: radial-gradient(circle at 20% 10%, rgba(139,107,60,0.06), transparent 50%),
-      radial-gradient(circle at 80% 90%, rgba(115,41,57,0.05), transparent 55%);
-  }
-  body::before {
-    content:''; position:fixed; inset:0; pointer-events:none; opacity:0.3;
-    mix-blend-mode:multiply; z-index:1;
-    background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' /%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.35'/%3E%3C/svg%3E");
-  }
-  .container { position:relative; z-index:2; max-width:1024px; margin:0 auto; padding:2.5rem 1.5rem; }
-  @media(min-width:768px){ .container { padding:4rem 1.5rem; } }
-
-  .topbar { display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem; }
-  .groq-badge { display:flex; align-items:center; gap:0.4rem; padding:0.35rem 0.75rem; background:var(--ink); color:var(--paper); font-family:var(--font-mono); font-size:0.65rem; letter-spacing:0.15em; text-transform:uppercase; border-radius:2px; }
-  .groq-badge-dot { width:6px; height:6px; border-radius:50%; background:#00d084; animation:pulse 2s ease-in-out infinite; }
-  @keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:0.4;} }
-  .key-status { display:flex; align-items:center; gap:0.5rem; padding:0.4rem 0.75rem; font-family:var(--font-mono); font-size:0.7rem; text-transform:uppercase; letter-spacing:0.1em; color:var(--ink-soft); background:rgba(255,255,255,0.4); border:1px solid var(--paper-deep); border-radius:999px; cursor:pointer; transition:all 0.2s; }
-  .key-status:hover { border-color:var(--ink); color:var(--ink); }
-  .key-dot { width:8px; height:8px; border-radius:50%; background:var(--alert-low); }
-
-  header { margin-bottom:2.5rem; }
-  @media(min-width:768px){ header { margin-bottom:3.5rem; } }
-  .eyebrow { display:flex; align-items:center; gap:0.5rem; margin-bottom:1.5rem; font-family:var(--font-mono); font-size:0.75rem; text-transform:uppercase; letter-spacing:0.25em; color:var(--oxblood); }
-  .eyebrow-line { width:32px; height:1px; background:var(--oxblood); }
-  h1 { font-family:var(--font-display); font-weight:400; font-size:clamp(2.25rem,6.5vw,5rem); letter-spacing:-0.02em; line-height:0.95; margin-bottom:1rem; }
-  h1 em { font-weight:400; font-style:italic; color:var(--oxblood); }
-  .lead { max-width:640px; font-size:1rem; line-height:1.6; color:var(--ink-soft); }
-  @media(min-width:768px){ .lead { font-size:1.125rem; } }
-
-  .upload-zone { border:2px dashed var(--ink-soft); border-radius:4px; padding:3rem 2rem; text-align:center; background:rgba(255,255,255,0.35); cursor:pointer; transition:all 0.3s ease; }
-  .upload-zone.compact { padding:1.5rem; }
-  .upload-zone:hover, .upload-zone.drag-over { border-color:var(--oxblood); background:rgba(115,41,57,0.04); }
-  .upload-icon { display:inline-flex; align-items:center; justify-content:center; width:72px; height:72px; border:1px solid var(--ink); border-radius:50%; margin-bottom:1.5rem; }
-  .upload-zone.compact .upload-icon { width:40px; height:40px; margin-bottom:0.5rem; }
-  .upload-zone.compact .upload-icon svg { width:18px; height:18px; }
-  .upload-title { font-family:var(--font-display); font-weight:400; font-size:1.5rem; margin-bottom:0.5rem; }
-  @media(min-width:768px){ .upload-title { font-size:1.875rem; } }
-  .upload-zone.compact .upload-title { font-size:1.1rem; margin-bottom:0.25rem; }
-  .upload-hint { font-family:var(--font-mono); font-size:0.875rem; color:var(--ink-soft); }
-  .upload-zone.compact .upload-hint { font-size:0.75rem; }
-  input[type="file"] { display:none; }
-
-  .error-box { margin-top:1.5rem; padding:1rem; display:flex; gap:0.75rem; background:#f7e5e4; border-left:3px solid var(--alert-high); }
-  .error-box svg { color:var(--alert-high); flex-shrink:0; margin-top:2px; }
-  .error-title { color:var(--alert-high); font-weight:600; }
-  .error-msg { font-size:0.875rem; color:var(--ink); }
-
-  .toolbar { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:1rem; margin:2rem 0 1.5rem; padding-bottom:1rem; border-bottom:1px solid var(--ink); }
-  .toolbar-info { font-family:var(--font-mono); font-size:0.75rem; text-transform:uppercase; letter-spacing:0.2em; color:var(--ink-soft); }
-  .toolbar-info strong { color:var(--ink); }
-  .toolbar-actions { display:flex; gap:0.5rem; flex-wrap:wrap; }
-  .btn { display:inline-flex; align-items:center; gap:0.5rem; padding:0.5rem 1rem; background:transparent; color:var(--ink); border:1px solid var(--ink); border-radius:2px; font-family:var(--font-mono); font-size:0.75rem; letter-spacing:0.05em; cursor:pointer; transition:all 0.2s; text-transform:uppercase; }
-  .btn:hover { background:var(--ink); color:var(--paper); }
-  .btn.danger { border-color:var(--oxblood); color:var(--oxblood); }
-  .btn.danger:hover { background:var(--oxblood); color:var(--paper); }
-
-  .docs { display:flex; flex-direction:column; gap:1rem; }
-  .doc { background:rgba(255,255,255,0.4); border:1px solid var(--paper-deep); transition:all 0.2s; }
-  .doc.error-state { border-color:var(--alert-high); }
-  .doc-head { display:flex; align-items:center; gap:0.75rem; padding:1rem 1.25rem; cursor:pointer; user-select:none; }
-  .doc-head:hover { background:rgba(255,255,255,0.3); }
-  .doc-status { flex-shrink:0; width:32px; height:32px; display:flex; align-items:center; justify-content:center; }
-  .doc-status.loading svg { animation:spin 1s linear infinite; color:var(--oxblood); }
-  .doc-status.done svg { color:var(--alert-low); }
-  .doc-status.error svg { color:var(--alert-high); }
-  @keyframes spin { to { transform:rotate(360deg); } }
-  .doc-info { flex:1; min-width:0; }
-  .doc-filename { font-family:var(--font-mono); font-size:0.75rem; color:var(--ink-soft); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; display:flex; align-items:center; gap:0.5rem; }
-  .file-badge { display:inline-flex; padding:0.1rem 0.4rem; background:var(--ink); color:var(--paper); font-size:0.6rem; letter-spacing:0.1em; border-radius:2px; }
-  .file-badge.docx { background:var(--sepia); }
-  .file-badge.pdf { background:var(--oxblood); }
-  .file-badge.xlsx { background:#5a6b3c; }
-  .file-badge.xls { background:#5a6b3c; }
-  .doc-type { font-family:var(--font-display); font-size:1.15rem; line-height:1.3; margin-top:0.15rem; }
-  .doc-type.pending { color:var(--ink-soft); font-style:italic; font-size:1rem; }
-  .doc-actions { display:flex; gap:0.5rem; flex-shrink:0; align-items:center; }
-
-  .btn-listen-mini { display:inline-flex; align-items:center; gap:0.35rem; padding:0.4rem 0.75rem; background:var(--ink); color:var(--paper); border:none; border-radius:999px; font-family:var(--font-mono); font-size:0.65rem; letter-spacing:0.05em; cursor:pointer; transition:background 0.2s; white-space:nowrap; }
-  .btn-listen-mini:hover { background:var(--oxblood); }
-  .btn-listen-mini.playing { background:var(--oxblood); }
-  .btn-icon { width:32px; height:32px; display:inline-flex; align-items:center; justify-content:center; background:transparent; border:1px solid var(--ink-soft); border-radius:2px; cursor:pointer; color:var(--ink); transition:all 0.2s; }
-  .btn-icon:hover { background:var(--ink); color:var(--paper); border-color:var(--ink); }
-  .chevron { transition:transform 0.3s; }
-  .doc.expanded .chevron { transform:rotate(180deg); }
-
-  .doc-body { max-height:0; overflow:hidden; transition:max-height 0.4s ease; }
-  .doc.expanded .doc-body { max-height:20000px; }
-  .doc-body-inner { padding:1.5rem 1.25rem; display:flex; flex-direction:column; gap:1.5rem; border-top:1px dotted var(--paper-deep); }
-
-  .reading-bar { height:3px; background:var(--paper-deep); }
-  .reading-bar-fill { height:100%; background:var(--oxblood); width:0%; transition:width 0.4s linear; }
-
-  .doc-extra-actions { display:flex; gap:0.5rem; padding:0.85rem 1.25rem; border-top:1px solid var(--paper-deep); background:rgba(255,255,255,0.2); flex-wrap:wrap; }
-  .btn-action { display:inline-flex; align-items:center; gap:0.4rem; padding:0.45rem 0.9rem; border:1px solid var(--ink-soft); border-radius:2px; background:transparent; color:var(--ink); font-family:var(--font-mono); font-size:0.68rem; letter-spacing:0.06em; text-transform:uppercase; cursor:pointer; transition:all 0.2s; }
-  .btn-action:hover { background:var(--ink); color:var(--paper); border-color:var(--ink); }
-  .btn-action.active { background:var(--oxblood); color:var(--paper); border-color:var(--oxblood); }
-  .btn-action svg { width:13px; height:13px; flex-shrink:0; }
-
-  .section-label { display:flex; align-items:center; gap:0.5rem; margin-bottom:0.75rem; font-family:var(--font-mono); font-size:0.7rem; text-transform:uppercase; letter-spacing:0.25em; color:var(--ink-soft); }
-  .summary { padding:1.25rem; background:rgba(255,255,255,0.5); border-left:3px solid var(--oxblood); }
-  .summary-text { font-family:var(--font-display); font-weight:400; font-size:1.05rem; line-height:1.55; }
-  @media(min-width:768px){ .summary-text { font-size:1.15rem; } }
-  .grid-2 { display:grid; grid-template-columns:1fr; gap:1rem; }
-  @media(min-width:640px){ .grid-2 { grid-template-columns:1fr 1fr; } }
-  .card { padding:1.25rem; background:rgba(255,255,255,0.4); }
-  .list-item { padding-bottom:0.75rem; margin-bottom:0.75rem; border-bottom:1px dotted var(--ink-soft); }
-  .list-item:last-child { border-bottom:none; margin-bottom:0; padding-bottom:0; }
-  .item-name { font-family:var(--font-display); font-size:1rem; }
-  .item-role { margin-top:0.25rem; font-family:var(--font-mono); font-size:0.65rem; text-transform:uppercase; letter-spacing:0.1em; color:var(--oxblood); }
-  .item-date { font-family:var(--font-mono); color:var(--oxblood); font-size:0.85rem; }
-  .item-desc { margin-top:0.25rem; font-size:0.85rem; color:var(--ink); }
-  .empty { font-size:0.85rem; font-style:italic; color:var(--ink-soft); }
-  .clauses { display:flex; flex-direction:column; gap:0.85rem; }
-  .clause { display:flex; gap:0.85rem; padding-bottom:0.85rem; border-bottom:1px solid var(--paper-deep); }
-  .clause:last-child { border-bottom:none; padding-bottom:0; }
-  .clause-num { flex-shrink:0; width:32px; height:32px; display:flex; align-items:center; justify-content:center; background:var(--ink); color:var(--paper); font-family:var(--font-mono); font-size:0.7rem; border-radius:2px; }
-  .clause-title { font-family:var(--font-display); font-size:1.05rem; font-weight:600; }
-  .clause-detail { margin-top:0.25rem; font-size:0.85rem; line-height:1.5; color:var(--ink-soft); }
-  .alerts { display:flex; flex-direction:column; gap:0.5rem; }
-  .alert { padding:0.85rem; display:flex; gap:0.75rem; }
-  .alert.high { background:#f7e5e4; border-left:3px solid var(--alert-high); }
-  .alert.med  { background:#f7ecd4; border-left:3px solid var(--alert-med); }
-  .alert.low  { background:#ebeddc; border-left:3px solid var(--alert-low); }
-  .alert-badge { flex-shrink:0; align-self:flex-start; padding:0.2rem 0.45rem; font-family:var(--font-mono); font-size:0.6rem; letter-spacing:0.15em; color:#fff; }
-  .alert-badge.high { background:var(--alert-high); }
-  .alert-badge.med  { background:var(--alert-med); }
-  .alert-badge.low  { background:var(--alert-low); }
-  .alert-text { font-size:0.85rem; line-height:1.5; color:var(--ink); }
-  .no-alerts { padding:1rem; display:flex; align-items:center; gap:0.75rem; background:#ebeddc; border-left:3px solid var(--alert-low); }
-  .no-alerts svg { color:var(--alert-low); }
-  .no-alerts p { font-size:0.85rem; color:var(--ink); }
-  .recs { padding:1.25rem; background:var(--ink); color:var(--paper); }
-  .recs .section-label { color:rgba(241,233,219,0.7); }
-  .recs ul { list-style:none; display:flex; flex-direction:column; gap:0.6rem; }
-  .recs li { display:flex; gap:0.75rem; font-family:var(--font-display); font-size:1rem; }
-  .rec-arrow { font-family:var(--font-mono); color:var(--paper-deep); opacity:0.6; }
-  .doc-error-msg { padding:1rem 1.25rem; color:var(--alert-high); font-size:0.875rem; background:#f7e5e4; }
-  .disclaimer { padding:2.5rem 0 0; font-family:var(--font-mono); font-size:0.75rem; text-align:center; color:var(--ink-soft); }
-  .hidden { display:none !important; }
-  .icon-md { width:20px; height:20px; flex-shrink:0; }
-  .icon-lg { width:28px; height:28px; flex-shrink:0; }
+:root{
+  --paper:#f1e9db;--paper-deep:#e6dcc8;--ink:#1b1815;--ink-soft:#55504a;
+  --oxblood:#732939;--sepia:#8a6a3c;--green:#5a6b3c;
+  --alert-high:#a71f2d;--alert-med:#b57a1f;--alert-low:#5a6b3c;
+  --font-display:'Fraunces',Georgia,serif;
+  --font-body:'DM Sans',system-ui,sans-serif;
+  --font-mono:'JetBrains Mono',monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+html,body{min-height:100vh;background:var(--paper);color:var(--ink);font-family:var(--font-body);font-size:16px;line-height:1.5;
+  background-image:radial-gradient(circle at 20% 10%,rgba(139,107,60,.06),transparent 50%),radial-gradient(circle at 80% 90%,rgba(115,41,57,.05),transparent 55%);}
+body::before{content:'';position:fixed;inset:0;pointer-events:none;opacity:.3;mix-blend-mode:multiply;z-index:1;
+  background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.35'/%3E%3C/svg%3E");}
+.container{position:relative;z-index:2;max-width:1060px;margin:0 auto;padding:2.5rem 1.5rem 8rem;}
+@media(min-width:768px){.container{padding:4rem 1.5rem 8rem;}}
+.topbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:1.5rem;}
+.groq-badge{display:flex;align-items:center;gap:.4rem;padding:.35rem .75rem;background:var(--ink);color:var(--paper);font-family:var(--font-mono);font-size:.65rem;letter-spacing:.15em;text-transform:uppercase;border-radius:2px;}
+.groq-badge-dot{width:6px;height:6px;border-radius:50%;background:#00d084;animation:pulse 2s ease-in-out infinite;}
+@keyframes pulse{0%,100%{opacity:1;}50%{opacity:.4;}}
+.key-status{display:flex;align-items:center;gap:.5rem;padding:.4rem .75rem;font-family:var(--font-mono);font-size:.7rem;text-transform:uppercase;letter-spacing:.1em;color:var(--ink-soft);background:rgba(255,255,255,.4);border:1px solid var(--paper-deep);border-radius:999px;cursor:pointer;transition:all .2s;}
+.key-status:hover{border-color:var(--ink);color:var(--ink);}
+.key-dot{width:8px;height:8px;border-radius:50%;background:var(--alert-low);}
+header{margin-bottom:2.5rem;}
+@media(min-width:768px){header{margin-bottom:3.5rem;}}
+.eyebrow{display:flex;align-items:center;gap:.5rem;margin-bottom:1.5rem;font-family:var(--font-mono);font-size:.75rem;text-transform:uppercase;letter-spacing:.25em;color:var(--oxblood);}
+.eyebrow-line{width:32px;height:1px;background:var(--oxblood);}
+h1{font-family:var(--font-display);font-weight:400;font-size:clamp(2.25rem,6.5vw,5rem);letter-spacing:-.02em;line-height:.95;margin-bottom:1rem;}
+h1 em{font-weight:400;font-style:italic;color:var(--oxblood);}
+.lead{max-width:640px;font-size:1rem;line-height:1.6;color:var(--ink-soft);}
+@media(min-width:768px){.lead{font-size:1.125rem;}}
+.upload-zone{border:2px dashed var(--ink-soft);border-radius:4px;padding:3rem 2rem;text-align:center;background:rgba(255,255,255,.35);cursor:pointer;transition:all .3s ease;}
+.upload-zone.compact{padding:1.5rem;}
+.upload-zone:hover,.upload-zone.drag-over{border-color:var(--oxblood);background:rgba(115,41,57,.04);}
+.upload-icon{display:inline-flex;align-items:center;justify-content:center;width:72px;height:72px;border:1px solid var(--ink);border-radius:50%;margin-bottom:1.5rem;}
+.upload-zone.compact .upload-icon{width:40px;height:40px;margin-bottom:.5rem;}
+.upload-zone.compact .upload-icon svg{width:18px;height:18px;}
+.upload-title{font-family:var(--font-display);font-weight:400;font-size:1.5rem;margin-bottom:.5rem;}
+@media(min-width:768px){.upload-title{font-size:1.875rem;}}
+.upload-zone.compact .upload-title{font-size:1.1rem;margin-bottom:.25rem;}
+.upload-hint{font-family:var(--font-mono);font-size:.875rem;color:var(--ink-soft);}
+.upload-zone.compact .upload-hint{font-size:.75rem;}
+input[type="file"]{display:none;}
+.error-box{margin-top:1.5rem;padding:1rem;display:flex;gap:.75rem;background:#f7e5e4;border-left:3px solid var(--alert-high);}
+.error-title{color:var(--alert-high);font-weight:600;}
+.error-msg{font-size:.875rem;color:var(--ink);}
+.toolbar{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:1rem;margin:2rem 0 1.5rem;padding-bottom:1rem;border-bottom:1px solid var(--ink);}
+.toolbar-info{font-family:var(--font-mono);font-size:.75rem;text-transform:uppercase;letter-spacing:.2em;color:var(--ink-soft);}
+.toolbar-info strong{color:var(--ink);}
+.toolbar-actions{display:flex;gap:.5rem;flex-wrap:wrap;}
+.btn{display:inline-flex;align-items:center;gap:.5rem;padding:.5rem 1rem;background:transparent;color:var(--ink);border:1px solid var(--ink);border-radius:2px;font-family:var(--font-mono);font-size:.75rem;letter-spacing:.05em;cursor:pointer;transition:all .2s;text-transform:uppercase;}
+.btn:hover{background:var(--ink);color:var(--paper);}
+.btn.danger{border-color:var(--oxblood);color:var(--oxblood);}
+.btn.danger:hover{background:var(--oxblood);color:var(--paper);}
+.docs{display:flex;flex-direction:column;gap:1rem;}
+.doc{background:rgba(255,255,255,.4);border:1px solid var(--paper-deep);transition:all .2s;}
+.doc.error-state{border-color:var(--alert-high);}
+.doc-head{display:flex;align-items:center;gap:.75rem;padding:1rem 1.25rem;cursor:pointer;user-select:none;}
+.doc-head:hover{background:rgba(255,255,255,.3);}
+.doc-status{flex-shrink:0;width:32px;height:32px;display:flex;align-items:center;justify-content:center;}
+.doc-status.loading svg{animation:spin 1s linear infinite;color:var(--oxblood);}
+.doc-status.done svg{color:var(--alert-low);}
+.doc-status.error svg{color:var(--alert-high);}
+@keyframes spin{to{transform:rotate(360deg);}}
+.doc-info{flex:1;min-width:0;}
+.doc-filename{font-family:var(--font-mono);font-size:.75rem;color:var(--ink-soft);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:flex;align-items:center;gap:.5rem;}
+.file-badge{display:inline-flex;padding:.1rem .4rem;background:var(--ink);color:var(--paper);font-size:.6rem;letter-spacing:.1em;border-radius:2px;}
+.file-badge.docx{background:var(--sepia);}
+.file-badge.pdf{background:var(--oxblood);}
+.file-badge.xlsx,.file-badge.xls{background:var(--green);}
+.doc-type{font-family:var(--font-display);font-size:1.15rem;line-height:1.3;margin-top:.15rem;}
+.doc-type.pending{color:var(--ink-soft);font-style:italic;font-size:1rem;}
+.doc-actions{display:flex;gap:.5rem;flex-shrink:0;align-items:center;}
+.btn-listen-mini{display:inline-flex;align-items:center;gap:.35rem;padding:.4rem .75rem;background:var(--ink);color:var(--paper);border:none;border-radius:999px;font-family:var(--font-mono);font-size:.65rem;letter-spacing:.05em;cursor:pointer;transition:background .2s;white-space:nowrap;}
+.btn-listen-mini:hover,.btn-listen-mini.playing{background:var(--oxblood);}
+.btn-icon{width:32px;height:32px;display:inline-flex;align-items:center;justify-content:center;background:transparent;border:1px solid var(--ink-soft);border-radius:2px;cursor:pointer;color:var(--ink);transition:all .2s;}
+.btn-icon:hover{background:var(--ink);color:var(--paper);border-color:var(--ink);}
+.chevron{transition:transform .3s;}
+.doc.expanded .chevron{transform:rotate(180deg);}
+.doc-body{max-height:0;overflow:hidden;transition:max-height .5s ease;}
+.doc.expanded .doc-body{max-height:40000px;}
+.doc-body-inner{padding:1.5rem 1.25rem;display:flex;flex-direction:column;gap:1.5rem;border-top:1px dotted var(--paper-deep);}
+.reading-bar{height:3px;background:var(--paper-deep);}
+.reading-bar-fill{height:100%;background:var(--oxblood);width:0%;transition:width .4s linear;}
+/* Score */
+.score-banner{display:flex;align-items:center;gap:1.25rem;padding:1.25rem 1.5rem;background:var(--ink);color:var(--paper);}
+.score-circle{flex-shrink:0;width:64px;height:64px;border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;border:2px solid rgba(241,233,219,.3);}
+.score-num{font-family:var(--font-display);font-size:1.6rem;line-height:1;}
+.score-lbl{font-family:var(--font-mono);font-size:.55rem;letter-spacing:.1em;color:rgba(241,233,219,.5);text-transform:uppercase;}
+.score-meta{flex:1;}
+.score-title{font-family:var(--font-display);font-size:1.15rem;margin-bottom:.25rem;}
+.score-sub{font-family:var(--font-mono);font-size:.7rem;color:rgba(241,233,219,.6);text-transform:uppercase;letter-spacing:.1em;}
+/* Sections */
+.section-label{display:flex;align-items:center;gap:.5rem;margin-bottom:.75rem;font-family:var(--font-mono);font-size:.7rem;text-transform:uppercase;letter-spacing:.25em;color:var(--ink-soft);}
+.summary{padding:1.25rem;background:rgba(255,255,255,.5);border-left:3px solid var(--oxblood);}
+.summary-text{font-family:var(--font-display);font-weight:400;font-size:1.05rem;line-height:1.6;}
+@media(min-width:768px){.summary-text{font-size:1.15rem;}}
+.grid-2{display:grid;grid-template-columns:1fr;gap:1rem;}
+@media(min-width:640px){.grid-2{grid-template-columns:1fr 1fr;}}
+.card{padding:1.25rem;background:rgba(255,255,255,.4);}
+.list-item{padding-bottom:.75rem;margin-bottom:.75rem;border-bottom:1px dotted var(--ink-soft);}
+.list-item:last-child{border-bottom:none;margin-bottom:0;padding-bottom:0;}
+.item-name{font-family:var(--font-display);font-size:1rem;}
+.item-role{margin-top:.25rem;font-family:var(--font-mono);font-size:.65rem;text-transform:uppercase;letter-spacing:.1em;color:var(--oxblood);}
+.item-date{font-family:var(--font-mono);color:var(--oxblood);font-size:.85rem;}
+.item-desc{margin-top:.25rem;font-size:.85rem;color:var(--ink);}
+.empty{font-size:.85rem;font-style:italic;color:var(--ink-soft);}
+/* PRC */
+.prc-grid{display:grid;grid-template-columns:1fr;gap:1rem;}
+@media(min-width:640px){.prc-grid{grid-template-columns:1fr 1fr 1fr;}}
+.prc-card{padding:1.25rem;}
+.prc-card.pros{background:#ebeddc;border-top:3px solid var(--green);}
+.prc-card.contras{background:#f7e5e4;border-top:3px solid var(--alert-high);}
+.prc-card.revisar{background:#f7ecd4;border-top:3px solid var(--alert-med);}
+.prc-list{list-style:none;display:flex;flex-direction:column;gap:.55rem;margin-top:.75rem;}
+.prc-list li{display:flex;gap:.6rem;font-size:.875rem;line-height:1.45;}
+.prc-icon{flex-shrink:0;}
+/* Montos */
+.montos-table{width:100%;border-collapse:collapse;font-size:.875rem;}
+.montos-table th{font-family:var(--font-mono);font-size:.65rem;text-transform:uppercase;letter-spacing:.15em;color:var(--ink-soft);padding:.5rem .75rem;text-align:left;border-bottom:2px solid var(--ink);}
+.montos-table td{padding:.6rem .75rem;border-bottom:1px dotted var(--paper-deep);}
+.monto-val{font-family:var(--font-mono);color:var(--oxblood);font-weight:600;}
+/* Clausulas */
+.clauses{display:flex;flex-direction:column;gap:.85rem;}
+.clause{display:flex;gap:.85rem;padding-bottom:.85rem;border-bottom:1px solid var(--paper-deep);}
+.clause:last-child{border-bottom:none;padding-bottom:0;}
+.clause-num{flex-shrink:0;width:32px;height:32px;display:flex;align-items:center;justify-content:center;background:var(--ink);color:var(--paper);font-family:var(--font-mono);font-size:.7rem;border-radius:2px;}
+.clause-title{font-family:var(--font-display);font-size:1.05rem;font-weight:600;}
+.clause-detail{margin-top:.25rem;font-size:.875rem;line-height:1.5;color:var(--ink-soft);}
+.clause-impact{display:inline-flex;margin-top:.35rem;padding:.15rem .45rem;font-family:var(--font-mono);font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;border-radius:2px;}
+.clause-impact.alta{background:#f7e5e4;color:var(--alert-high);}
+.clause-impact.media{background:#f7ecd4;color:var(--alert-med);}
+.clause-impact.baja{background:#ebeddc;color:var(--green);}
+/* Alertas */
+.alerts{display:flex;flex-direction:column;gap:.5rem;}
+.alert{padding:.85rem;display:flex;gap:.75rem;}
+.alert.high{background:#f7e5e4;border-left:3px solid var(--alert-high);}
+.alert.med{background:#f7ecd4;border-left:3px solid var(--alert-med);}
+.alert.low{background:#ebeddc;border-left:3px solid var(--alert-low);}
+.alert-badge{flex-shrink:0;align-self:flex-start;padding:.2rem .45rem;font-family:var(--font-mono);font-size:.6rem;letter-spacing:.15em;color:#fff;}
+.alert-badge.high{background:var(--alert-high);}
+.alert-badge.med{background:var(--alert-med);}
+.alert-badge.low{background:var(--alert-low);}
+.alert-text{font-size:.875rem;line-height:1.5;}
+.no-alerts{padding:1rem;display:flex;align-items:center;gap:.75rem;background:#ebeddc;border-left:3px solid var(--alert-low);}
+.no-alerts p{font-size:.875rem;}
+/* Tags */
+.tag-list{display:flex;flex-wrap:wrap;gap:.4rem;margin-top:.5rem;}
+.tag{padding:.2rem .6rem;background:var(--paper-deep);border-radius:999px;font-family:var(--font-mono);font-size:.65rem;letter-spacing:.08em;}
+/* Recs */
+.recs{padding:1.25rem;background:var(--ink);color:var(--paper);}
+.recs .section-label{color:rgba(241,233,219,.6);}
+.recs ul{list-style:none;display:flex;flex-direction:column;gap:.6rem;}
+.recs li{display:flex;gap:.75rem;font-family:var(--font-display);font-size:1rem;line-height:1.4;}
+.rec-arrow{font-family:var(--font-mono);color:var(--paper-deep);opacity:.6;flex-shrink:0;}
+/* Extra actions */
+.doc-extra-actions{display:flex;gap:.5rem;padding:.85rem 1.25rem;border-top:1px solid var(--paper-deep);background:rgba(255,255,255,.2);flex-wrap:wrap;}
+.btn-action{display:inline-flex;align-items:center;gap:.4rem;padding:.45rem .9rem;border:1px solid var(--ink-soft);border-radius:2px;background:transparent;color:var(--ink);font-family:var(--font-mono);font-size:.68rem;letter-spacing:.06em;text-transform:uppercase;cursor:pointer;transition:all .2s;}
+.btn-action:hover{background:var(--ink);color:var(--paper);border-color:var(--ink);}
+.btn-action.active{background:var(--oxblood);color:var(--paper);border-color:var(--oxblood);}
+.btn-action svg{width:13px;height:13px;flex-shrink:0;}
+/* FAB */
+.fab-wrap{position:fixed;bottom:2rem;right:2rem;z-index:100;display:flex;flex-direction:column;align-items:flex-end;gap:.5rem;}
+.fab-menu{display:flex;flex-direction:column;gap:.4rem;align-items:flex-end;margin-bottom:.25rem;}
+.fab-menu-item{display:inline-flex;align-items:center;gap:.6rem;padding:.55rem 1rem;background:var(--ink);color:var(--paper);border:none;border-radius:999px;font-family:var(--font-mono);font-size:.7rem;letter-spacing:.05em;cursor:pointer;transition:all .2s;white-space:nowrap;box-shadow:0 4px 16px rgba(0,0,0,.25);}
+.fab-menu-item:hover{background:var(--oxblood);}
+.fab-menu-item svg{width:14px;height:14px;flex-shrink:0;}
+.fab{width:56px;height:56px;border-radius:50%;background:var(--oxblood);border:none;color:var(--paper);display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 4px 20px rgba(115,41,57,.45);transition:all .2s;}
+.fab:hover{background:var(--ink);transform:scale(1.05);}
+.fab svg{width:22px;height:22px;transition:transform .3s;}
+.fab.open svg{transform:rotate(45deg);}
+.fab-label{font-family:var(--font-mono);font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;text-align:center;color:var(--ink-soft);margin-top:.3rem;}
+/* Misc */
+.doc-error-msg{padding:1rem 1.25rem;color:var(--alert-high);font-size:.875rem;background:#f7e5e4;}
+.disclaimer{padding:2.5rem 0 0;font-family:var(--font-mono);font-size:.75rem;text-align:center;color:var(--ink-soft);}
+.hidden{display:none!important;}
+.icon-md{width:20px;height:20px;flex-shrink:0;}
+.icon-lg{width:28px;height:28px;flex-shrink:0;}
 </style>
 </head>
 <body>
 <div class="container">
-
   <div class="topbar">
-    <div class="groq-badge">
-      <span class="groq-badge-dot"></span>
-      Groq · LLaMA 3
-    </div>
-    <button id="keyStatusBtn" class="key-status" title="Estado Groq">
-      <span class="key-dot"></span>
-      <span id="keyStatusText">GROQ · LISTO</span>
-    </button>
+    <div class="groq-badge"><span class="groq-badge-dot"></span>Groq · LLaMA 3.3</div>
+    <button id="keyStatusBtn" class="key-status"><span class="key-dot"></span><span id="keyStatusText">GROQ · LISTO</span></button>
   </div>
-
   <header>
-    <div class="eyebrow"><div class="eyebrow-line"></div>Lex · Análisis Documental</div>
+    <div class="eyebrow"><div class="eyebrow-line"></div>Lex · Análisis Documental Pro</div>
     <h1>Sube tus documentos,<br /><em>entiéndelos en segundos.</em></h1>
-    <p class="lead">
-      Contratos, escrituras, pagarés, actas. Sube uno o varios archivos
-      <strong>PDF o Word</strong> a la vez. La IA identifica cada documento,
-      extrae partes, fechas y cláusulas clave, señala errores o riesgos,
-      te lo lee en voz alta y genera informes descargables.
-      Impulsado por <strong>Groq</strong> — ultrarrápido.
-    </p>
+    <p class="lead">Contratos, escrituras, pagarés, actas, hojas de cálculo. Sube uno o varios archivos <strong>PDF, Word o Excel</strong>. La IA genera un análisis profesional completo: partes, cláusulas, pros, contras, riesgos, montos y más. Descarga informes individuales o un informe global y resumen ejecutivo de todos los documentos.</p>
   </header>
 
   <div id="uploadZone" class="upload-zone">
-    <input type="file" id="fileInput" accept=".pdf,.docx,.xlsx,.xls,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" multiple />
+    <input type="file" id="fileInput" accept=".pdf,.docx,.xlsx,.xls" multiple />
     <div class="upload-icon">
       <svg class="icon-lg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
         <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
       </svg>
     </div>
     <p class="upload-title">Arrastra tus documentos aquí</p>
-    <p class="upload-hint">PDF · Word (.docx) · Excel (.xlsx) · varios a la vez · máx 20 MB c/u</p>
+    <p class="upload-hint">PDF · Word (.docx) · Excel (.xlsx / .xls) · varios a la vez · máx 20 MB c/u</p>
   </div>
 
   <div id="errorBox" class="error-box hidden">
@@ -228,7 +233,7 @@
   <div id="docs" class="docs"></div>
 
   <div id="uploadMore" class="upload-zone compact hidden" style="margin-top:1rem;">
-    <input type="file" id="fileInputMore" accept=".pdf,.docx,.xlsx,.xls,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" multiple />
+    <input type="file" id="fileInputMore" accept=".pdf,.docx,.xlsx,.xls" multiple />
     <div class="upload-icon">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
         <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
@@ -237,488 +242,494 @@
     <p class="upload-title">Añadir más documentos</p>
     <p class="upload-hint">PDF · Word · Excel · arrastra o haz clic</p>
   </div>
+  <p id="disclaimer" class="disclaimer hidden">Este análisis es informativo. No sustituye el consejo de un abogado colegiado.</p>
+</div>
 
-  <p id="disclaimer" class="disclaimer hidden">
-    Este análisis es informativo. No sustituye el consejo de un abogado.
-  </p>
+<!-- FAB -->
+<div id="fabWrap" class="fab-wrap hidden">
+  <div id="fabMenu" class="fab-menu hidden">
+    <button class="fab-menu-item" id="fabExec">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+      Resumen Ejecutivo (TXT)
+    </button>
+    <button class="fab-menu-item" id="fabGlobal">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      Informe Global (HTML)
+    </button>
+    <button class="fab-menu-item" id="fabReadAll">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
+      Leer todo en voz alta
+    </button>
+  </div>
+  <button id="fabBtn" class="fab" title="Acciones globales">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+    </svg>
+  </button>
+  <div class="fab-label">Acciones</div>
 </div>
 
 <script>
-  const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
-  const GROQ_MODEL   = 'llama-3.3-70b-versatile';
-  const MAX_SIZE     = 20 * 1024 * 1024;
-  const API_KEY      = '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';
+const GROQ_API_URL='https://api.groq.com/openai/v1/chat/completions';
+const GROQ_MODEL='llama-3.3-70b-versatile';
+const MAX_SIZE=20*1024*1024;
+const API_KEY='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';
 
-  pdfjsLib.GlobalWorkerOptions.workerSrc =
-    'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
-  const $ = id => document.getElementById(id);
-  const uploadZone    = $('uploadZone');
-  const uploadMore    = $('uploadMore');
-  const fileInput     = $('fileInput');
-  const fileInputMore = $('fileInputMore');
-  const errorBox      = $('errorBox');
-  const errorMsg      = $('errorMsg');
-  const toolbar       = $('toolbar');
-  const statsText     = $('statsText');
-  const docsEl        = $('docs');
-  const disclaimer    = $('disclaimer');
+const $=id=>document.getElementById(id);
+const uploadZone=$('uploadZone'),uploadMore=$('uploadMore'),fileInput=$('fileInput'),
+  fileInputMore=$('fileInputMore'),errorBox=$('errorBox'),errorMsg=$('errorMsg'),
+  toolbar=$('toolbar'),statsText=$('statsText'),docsEl=$('docs'),disclaimer=$('disclaimer'),
+  fabWrap=$('fabWrap'),fabBtn=$('fabBtn'),fabMenu=$('fabMenu');
 
-  const documents = new Map();
-  let nextId = 1;
-  let currentSpeech = null;
+const documents=new Map();
+let nextId=1,currentSpeech=null,fabOpen=false;
 
-  function wireUpload(zone, input) {
-    zone.addEventListener('click', () => input.click());
-    zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('drag-over'); });
-    zone.addEventListener('dragleave', () => zone.classList.remove('drag-over'));
-    zone.addEventListener('drop', e => {
-      e.preventDefault(); zone.classList.remove('drag-over');
-      if (e.dataTransfer.files?.length) handleFiles(e.dataTransfer.files);
-    });
-    input.addEventListener('change', e => { if (e.target.files?.length) handleFiles(e.target.files); input.value = ''; });
-  }
-  wireUpload(uploadZone, fileInput);
-  wireUpload(uploadMore, fileInputMore);
+function wireUpload(zone,input){
+  zone.addEventListener('click',()=>input.click());
+  zone.addEventListener('dragover',e=>{e.preventDefault();zone.classList.add('drag-over');});
+  zone.addEventListener('dragleave',()=>zone.classList.remove('drag-over'));
+  zone.addEventListener('drop',e=>{e.preventDefault();zone.classList.remove('drag-over');if(e.dataTransfer.files?.length)handleFiles(e.dataTransfer.files);});
+  input.addEventListener('change',e=>{if(e.target.files?.length)handleFiles(e.target.files);input.value='';});
+}
+wireUpload(uploadZone,fileInput);
+wireUpload(uploadMore,fileInputMore);
+$('btnExpandAll').addEventListener('click',()=>{documents.forEach(d=>{if(d.status==='done')d.expanded=true;});renderDocs();});
+$('btnCollapseAll').addEventListener('click',()=>{documents.forEach(d=>{d.expanded=false;});renderDocs();});
+$('btnClearAll').addEventListener('click',()=>{if(!confirm('¿Eliminar todos los documentos?'))return;stopSpeech();documents.clear();renderAll();});
+fabBtn.addEventListener('click',()=>{fabOpen=!fabOpen;fabBtn.classList.toggle('open',fabOpen);fabMenu.classList.toggle('hidden',!fabOpen);});
+$('fabExec').addEventListener('click',()=>{closeFab();downloadExecutiveTxt();});
+$('fabGlobal').addEventListener('click',()=>{closeFab();downloadGlobalHtml();});
+$('fabReadAll').addEventListener('click',()=>{closeFab();readAllDocs();});
+function closeFab(){fabOpen=false;fabBtn.classList.remove('open');fabMenu.classList.add('hidden');}
 
-  $('btnExpandAll').addEventListener('click',  () => { documents.forEach(d => { if (d.status==='done') d.expanded=true; }); renderDocs(); });
-  $('btnCollapseAll').addEventListener('click', () => { documents.forEach(d => { d.expanded=false; }); renderDocs(); });
-  $('btnClearAll').addEventListener('click',    () => { if (!confirm('¿Eliminar todos los documentos?')) return; stopSpeech(); documents.clear(); renderAll(); });
-
-  function detectFileType(file) {
-    const n = file.name.toLowerCase();
-    if (n.endsWith('.pdf') || file.type==='application/pdf') return 'pdf';
-    if (n.endsWith('.docx') || file.type==='application/vnd.openxmlformats-officedocument.wordprocessingml.document') return 'docx';
-    if (n.endsWith('.xlsx') || file.type==='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet') return 'xlsx';
-    if (n.endsWith('.xls')  || file.type==='application/vnd.ms-excel') return 'xls';
-    if (n.endsWith('.doc')) return 'doc-legacy';
-    return 'unknown';
-  }
-
-  function handleFiles(fileList) {
-    hideError();
-    const rejected = [];
-    for (const f of Array.from(fileList)) {
-      const type = detectFileType(f);
-      if (type==='unknown')    { rejected.push(`${f.name}: formato no soportado`); continue; }
-      if (type==='doc-legacy') { rejected.push(`${f.name}: .doc antiguo. Guárdalo como .docx`); continue; }
-      if (f.size > MAX_SIZE)   { rejected.push(`${f.name}: excede 20 MB`); continue; }
-      const id = nextId++;
-      documents.set(id, { id, file:f, kind:type, status:'loading', data:null, expanded:false, error:null });
-      processDocument(id);
-    }
-    if (rejected.length) showError('No se pudieron agregar: ' + rejected.join(' · '));
-    renderAll();
-  }
-
-  async function processDocument(id) {
-    try {
-      const doc = documents.get(id);
-      if (!doc) return;
-      let text;
-      if (doc.kind === 'pdf') {
-        text = await extractPdfText(doc.file);
-      } else if (doc.kind === 'xlsx' || doc.kind === 'xls') {
-        text = await extractExcelText(doc.file);
-      } else {
-        text = (await window.mammoth.extractRawText({ arrayBuffer: await doc.file.arrayBuffer() })).value;
-      }
-      if (!text || text.trim().length < 20) throw new Error('El documento parece estar vacío o es un PDF escaneado sin texto.');
-      const result = await callGroq(text, doc.file.name);
-      const cur = documents.get(id);
-      if (!cur) return;
-      cur.status = 'done'; cur.data = result; cur.expanded = documents.size <= 3;
-      renderAll();
-    } catch(e) {
-      console.error(e);
-      const cur = documents.get(id);
-      if (!cur) return;
-      cur.status = 'error'; cur.error = friendlyError(e);
-      renderAll();
-    }
-  }
-
-  async function extractPdfText(file) {
-    const pdf = await pdfjsLib.getDocument({ data: await file.arrayBuffer() }).promise;
-    const pages = [];
-    for (let i=1; i<=pdf.numPages; i++) {
-      const page = await pdf.getPage(i);
-      const content = await page.getTextContent();
-      pages.push(content.items.map(it=>it.str).join(' '));
-    }
-    return pages.join('\n\n');
-  }
-
-  async function extractExcelText(file) {
-    const ab = await file.arrayBuffer();
-    const wb = XLSX.read(ab, { type: 'array' });
-    const lines = [];
-    for (const sheetName of wb.SheetNames) {
-      lines.push(`=== Hoja: ${sheetName} ===`);
-      const ws = wb.Sheets[sheetName];
-      const csv = XLSX.utils.sheet_to_csv(ws, { blankrows: false });
-      lines.push(csv);
-    }
-    return lines.join('\n\n');
-  }
-
-  function friendlyError(e) {
-    const m = (e?.message||'').toLowerCase();
-    if (m.includes('401')||m.includes('invalid api key')||m.includes('authentication')) return 'API key inválida o expirada. Verifica tu key de Groq.';
-    if (m.includes('429')||m.includes('rate limit')) return 'Límite de solicitudes alcanzado. Espera un momento e intenta de nuevo.';
-    if (m.includes('vacío')||m.includes('escaneado')) return e.message;
-    if (m.includes('failed to fetch')||m.includes('network')) return 'Error de red. Abre el archivo desde un servidor local, no con doble clic.';
-    if (m.includes('json')) return 'Respuesta inesperada del modelo. Intenta de nuevo.';
-    if (m.includes('404')) return 'Modelo no encontrado en Groq. Intenta de nuevo.';
-    return 'Error: ' + (e?.message||'desconocido');
-  }
-
-  const ANALYSIS_PROMPT = `Eres un abogado experto que analiza documentos legales en español.
-Responde EXCLUSIVAMENTE con JSON válido. Sin markdown, sin bloques de código:
-
-{
-  "tipoDocumento": "tipo específico",
-  "resumen": "2-3 oraciones en lenguaje llano",
-  "partes": [{"nombre":"nombre","rol":"rol"}],
-  "fechasClave": [{"fecha":"fecha legible","descripcion":"qué representa"}],
-  "clausulasClave": [{"titulo":"título corto","detalle":"explicación simple"}],
-  "alertas": [{"severidad":"alta|media|baja","problema":"descripción del problema"}],
-  "recomendaciones": ["acción 1","acción 2"],
-  "lecturaVoz": "4-6 oraciones naturales para leer en voz alta como un abogado explicando al cliente"
+function detectFileType(file){
+  const n=file.name.toLowerCase();
+  if(n.endsWith('.pdf')||file.type==='application/pdf') return 'pdf';
+  if(n.endsWith('.docx')||file.type==='application/vnd.openxmlformats-officedocument.wordprocessingml.document') return 'docx';
+  if(n.endsWith('.xlsx')||file.type==='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet') return 'xlsx';
+  if(n.endsWith('.xls')||file.type==='application/vnd.ms-excel') return 'xls';
+  if(n.endsWith('.doc')) return 'doc-legacy';
+  return 'unknown';
 }
 
-Busca rigurosamente: fechas incoherentes, montos con discrepancia letra/cifra, firmas ausentes,
-cláusulas ambiguas o abusivas, identificaciones incompletas, jurisdicciones contradictorias.
-Si un campo no aplica, usa array vacío.`;
-
-  async function callGroq(text, filename) {
-    const truncated = text.length > 28000 ? text.slice(0,28000)+'\n\n[...truncado...]' : text;
-    const resp = await fetch(GROQ_API_URL, {
-      method:'POST',
-      headers:{ 'Content-Type':'application/json', 'Authorization':`Bearer ${API_KEY}` },
-      body: JSON.stringify({
-        model: GROQ_MODEL, max_tokens: 4096, temperature: 0.1,
-        messages:[
-          { role:'system', content:'Eres un abogado experto en documentos legales en español. Respondes SIEMPRE y ÚNICAMENTE con JSON válido, sin texto adicional ni markdown.' },
-          { role:'user',   content:`Archivo: ${filename}\n\n---INICIO---\n${truncated}\n---FIN---\n\n${ANALYSIS_PROMPT}` }
-        ]
-      })
-    });
-    if (!resp.ok) {
-      const errBody = await resp.text();
-      console.error('Groq HTTP error:', resp.status, errBody);
-      throw new Error(`HTTP ${resp.status}: ${errBody}`);
-    }
-    const data = await resp.json();
-    if (data.error) { console.error('Groq API error:', data.error); throw new Error(data.error.message||'Groq error'); }
-    const raw   = (data.choices?.[0]?.message?.content||'').trim();
-    const clean = raw.replace(/^```(?:json)?/i,'').replace(/```$/i,'').trim();
-    const s = clean.indexOf('{'), e = clean.lastIndexOf('}');
-    if (s===-1||e===-1) throw new Error('json');
-    return JSON.parse(clean.slice(s,e+1));
+function handleFiles(fileList){
+  hideError();
+  const rejected=[];
+  for(const f of Array.from(fileList)){
+    const type=detectFileType(f);
+    if(type==='unknown'){rejected.push(`${f.name}: formato no soportado`);continue;}
+    if(type==='doc-legacy'){rejected.push(`${f.name}: .doc antiguo — guárdalo como .docx`);continue;}
+    if(f.size>MAX_SIZE){rejected.push(`${f.name}: excede 20 MB`);continue;}
+    const id=nextId++;
+    documents.set(id,{id,file:f,kind:type,status:'loading',data:null,expanded:false,error:null});
+    processDocument(id);
   }
+  if(rejected.length) showError('No se pudieron agregar: '+rejected.join(' · '));
+  renderAll();
+}
 
-  function showError(msg) { errorMsg.textContent=msg; errorBox.classList.remove('hidden'); }
-  function hideError()    { errorBox.classList.add('hidden'); }
-
-  function renderAll() {
-    const has = documents.size > 0;
-    uploadZone.classList.toggle('hidden', has);
-    uploadMore.classList.toggle('hidden', !has);
-    toolbar.classList.toggle('hidden', !has);
-    disclaimer.classList.toggle('hidden', !has);
-    if (has) updateStats();
-    renderDocs();
+async function processDocument(id){
+  try{
+    const doc=documents.get(id);if(!doc) return;
+    let text;
+    if(doc.kind==='pdf') text=await extractPdfText(doc.file);
+    else if(doc.kind==='xlsx'||doc.kind==='xls') text=await extractExcelText(doc.file);
+    else text=(await window.mammoth.extractRawText({arrayBuffer:await doc.file.arrayBuffer()})).value;
+    if(!text||text.trim().length<20) throw new Error('El documento parece estar vacío o es un PDF escaneado sin texto seleccionable.');
+    const result=await callGroq(text,doc.file.name);
+    const cur=documents.get(id);if(!cur) return;
+    cur.status='done';cur.data=result;cur.expanded=documents.size<=3;
+    renderAll();
+  }catch(e){
+    console.error(e);
+    const cur=documents.get(id);if(!cur) return;
+    cur.status='error';cur.error=friendlyError(e);
+    renderAll();
   }
+}
 
-  function updateStats() {
-    const total = documents.size;
-    let done=0,loading=0,error=0;
-    documents.forEach(d => { if(d.status==='done')done++; else if(d.status==='loading')loading++; else error++; });
-    const parts = [`<strong>${total}</strong> ${total===1?'documento':'documentos'}`];
-    if (loading) parts.push(`<strong>${loading}</strong> analizando`);
-    if (done)    parts.push(`<strong>${done}</strong> listo${done===1?'':'s'}`);
-    if (error)   parts.push(`<strong>${error}</strong> con error`);
-    statsText.innerHTML = parts.join(' · ');
+async function extractPdfText(file){
+  const pdf=await pdfjsLib.getDocument({data:await file.arrayBuffer()}).promise;
+  const pages=[];
+  for(let i=1;i<=pdf.numPages;i++){const page=await pdf.getPage(i);const c=await page.getTextContent();pages.push(c.items.map(it=>it.str).join(' '));}
+  return pages.join('\n\n');
+}
+async function extractExcelText(file){
+  const ab=await file.arrayBuffer();
+  const wb=XLSX.read(ab,{type:'array'});
+  const lines=[];
+  for(const sn of wb.SheetNames){lines.push(`=== Hoja: ${sn} ===`);lines.push(XLSX.utils.sheet_to_csv(wb.Sheets[sn],{blankrows:false}));}
+  return lines.join('\n\n');
+}
+
+function friendlyError(e){
+  const m=(e?.message||'').toLowerCase();
+  if(m.includes('401')||m.includes('authentication')) return 'API key inválida o expirada.';
+  if(m.includes('429')||m.includes('rate limit')) return 'Límite de solicitudes. Espera un momento.';
+  if(m.includes('vacío')||m.includes('escaneado')) return e.message;
+  if(m.includes('failed to fetch')||m.includes('network')) return 'Error de red. Abre el archivo desde un servidor local, no haciendo doble clic.';
+  if(m.includes('json')) return 'Respuesta inesperada del modelo. Intenta de nuevo.';
+  if(m.includes('decommissioned')||m.includes('404')) return 'Modelo no disponible. Contacta soporte.';
+  return 'Error: '+(e?.message||'desconocido');
+}
+
+const PROMPT=`Eres un abogado y analista financiero experto. Analiza el documento y responde EXCLUSIVAMENTE con JSON válido, sin markdown ni bloques de código:
+{
+  "tipoDocumento":"tipo específico del documento",
+  "puntaje":75,
+  "nivelRiesgo":"alto|medio|bajo",
+  "resumen":"3-4 oraciones claras explicando qué es y qué hace el documento",
+  "resumenEjecutivo":"Párrafo ejecutivo de 4-5 líneas profesionales",
+  "partes":[{"nombre":"nombre completo","rol":"rol jurídico","identificacion":"cédula/RUC si aparece"}],
+  "fechasClave":[{"fecha":"fecha legible","descripcion":"qué representa"}],
+  "montos":[{"descripcion":"qué representa","valor":"valor con moneda","tipo":"pago|deuda|multa|garantia|otro"}],
+  "clausulasClave":[{"titulo":"título corto","detalle":"explicación clara","impacto":"alta|media|baja"}],
+  "pros":["ventaja o punto favorable 1","ventaja 2"],
+  "contras":["desventaja o riesgo 1","desventaja 2"],
+  "cosasARevisar":["elemento que debe verificarse o negociarse 1","elemento 2"],
+  "alertas":[{"severidad":"alta|media|baja","problema":"descripción detallada del problema"}],
+  "terminosImportantes":["término legal clave 1","término 2"],
+  "recomendaciones":["acción concreta 1","acción 2"],
+  "lecturaVoz":"5-7 oraciones naturales para leer en voz alta como abogado explicando al cliente"
+}
+Analiza rigurosamente: fechas incoherentes, montos con discrepancia letra/cifra, firmas ausentes, cláusulas abusivas o ambiguas, identificaciones incompletas, plazos peligrosos, garantías excesivas, jurisdicciones contradictorias. El puntaje va de 0 (muy malo) a 100 (perfecto). Si un campo no aplica, usa [].`;
+
+async function callGroq(text,filename){
+  const truncated=text.length>28000?text.slice(0,28000)+'\n\n[...truncado...]':text;
+  const resp=await fetch(GROQ_API_URL,{
+    method:'POST',
+    headers:{'Content-Type':'application/json','Authorization':`Bearer ${API_KEY}`},
+    body:JSON.stringify({model:GROQ_MODEL,max_tokens:4096,temperature:0.1,
+      messages:[
+        {role:'system',content:'Eres abogado y analista experto. Respondes SOLO con JSON válido, sin texto adicional ni markdown.'},
+        {role:'user',content:`Archivo: ${filename}\n\n---INICIO---\n${truncated}\n---FIN---\n\n${PROMPT}`}
+      ]})
+  });
+  if(!resp.ok){const b=await resp.text();console.error('Groq error',resp.status,b);throw new Error(`HTTP ${resp.status}: ${b}`);}
+  const data=await resp.json();
+  if(data.error) throw new Error(data.error.message||'Groq error');
+  const raw=(data.choices?.[0]?.message?.content||'').trim();
+  const clean=raw.replace(/^```(?:json)?/i,'').replace(/```$/i,'').trim();
+  const s=clean.indexOf('{'),e=clean.lastIndexOf('}');
+  if(s===-1||e===-1) throw new Error('json parse error');
+  return JSON.parse(clean.slice(s,e+1));
+}
+
+function showError(msg){errorMsg.textContent=msg;errorBox.classList.remove('hidden');}
+function hideError(){errorBox.classList.add('hidden');}
+
+function renderAll(){
+  const has=documents.size>0;
+  uploadZone.classList.toggle('hidden',has);
+  uploadMore.classList.toggle('hidden',!has);
+  toolbar.classList.toggle('hidden',!has);
+  disclaimer.classList.toggle('hidden',!has);
+  const hasDone=Array.from(documents.values()).some(d=>d.status==='done');
+  fabWrap.classList.toggle('hidden',!hasDone);
+  if(has) updateStats();
+  renderDocs();
+}
+function updateStats(){
+  const total=documents.size;let done=0,loading=0,error=0;
+  documents.forEach(d=>{if(d.status==='done')done++;else if(d.status==='loading')loading++;else error++;});
+  const parts=[`<strong>${total}</strong> ${total===1?'documento':'documentos'}`];
+  if(loading) parts.push(`<strong>${loading}</strong> analizando`);
+  if(done) parts.push(`<strong>${done}</strong> listo${done===1?'':'s'}`);
+  if(error) parts.push(`<strong>${error}</strong> con error`);
+  statsText.innerHTML=parts.join(' · ');
+}
+function renderDocs(){
+  docsEl.innerHTML='';
+  Array.from(documents.values()).sort((a,b)=>a.id-b.id).forEach(doc=>docsEl.appendChild(renderDocCard(doc)));
+}
+
+function renderDocCard(doc){
+  const el=document.createElement('div');
+  el.className='doc'+(doc.expanded?' expanded':'')+(doc.status==='error'?' error-state':'');
+  const statusIcon=doc.status==='loading'
+    ?`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" width="20" height="20"><line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="4.93" y1="4.93" x2="7.76" y2="7.76"/><line x1="16.24" y1="16.24" x2="19.07" y2="19.07"/><line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/><line x1="4.93" y1="19.07" x2="7.76" y2="16.24"/><line x1="16.24" y1="7.76" x2="19.07" y2="4.93"/></svg>`
+    :doc.status==='done'
+    ?`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="20" height="20"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>`
+    :`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="20" height="20"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>`;
+  const typeText=doc.status==='done'?escapeHTML(doc.data.tipoDocumento):doc.status==='loading'?'Analizando con Groq…':'No se pudo analizar';
+  const isPlaying=currentSpeech?.id===doc.id;
+  const listenBtn=doc.status==='done'?`<button class="btn-listen-mini${isPlaying?' playing':''}" data-act="listen" data-id="${doc.id}">${isPlaying?`<svg viewBox="0 0 24 24" fill="currentColor" width="12" height="12"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>DETENER`:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="12" height="12"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>ESCUCHAR`}</button>`:'';
+  const chevron=doc.status==='done'?`<button class="btn-icon" data-act="toggle" data-id="${doc.id}"><svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><polyline points="6 9 12 15 18 9"/></svg></button>`:'';
+  const deleteBtn=`<button class="btn-icon" data-act="delete" data-id="${doc.id}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6m5 0V4a2 2 0 0 1 2-2h0a2 2 0 0 1 2 2v2"/></svg></button>`;
+  let bodyHTML='';
+  if(doc.status==='done'){
+    const isReading=currentSpeech?.id===doc.id;
+    const readingBar=isReading?`<div class="reading-bar"><div class="reading-bar-fill" id="bar-${doc.id}"></div></div>`:'';
+    const extraActions=`<div class="doc-extra-actions">
+      <button class="btn-action${isReading?' active':''}" data-act="read-full" data-id="${doc.id}">${isReading?`<svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>DETENER`:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>LEER COMPLETO`}</button>
+      <button class="btn-action" data-act="dl-txt" data-id="${doc.id}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>TXT</button>
+      <button class="btn-action" data-act="dl-html" data-id="${doc.id}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>INFORME HTML</button>
+    </div>`;
+    bodyHTML=`<div class="doc-body">${readingBar}<div class="doc-body-inner">${renderAnalysisBody(doc)}</div>${extraActions}</div>`;
+  }else if(doc.status==='error'){
+    bodyHTML=`<div class="doc-error-msg">${escapeHTML(doc.error||'Error desconocido')}</div>`;
   }
-
-  function renderDocs() {
-    docsEl.innerHTML='';
-    Array.from(documents.values()).sort((a,b)=>a.id-b.id).forEach(doc=>docsEl.appendChild(renderDocCard(doc)));
-  }
-
-  function renderDocCard(doc) {
-    const el = document.createElement('div');
-    el.className = 'doc'+(doc.expanded?' expanded':'')+(doc.status==='error'?' error-state':'');
-
-    const statusIcon = doc.status==='loading'
-      ? `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" width="20" height="20"><line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="4.93" y1="4.93" x2="7.76" y2="7.76"/><line x1="16.24" y1="16.24" x2="19.07" y2="19.07"/><line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/><line x1="4.93" y1="19.07" x2="7.76" y2="16.24"/><line x1="16.24" y1="7.76" x2="19.07" y2="4.93"/></svg>`
-      : doc.status==='done'
-      ? `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="20" height="20"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>`
-      : `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="20" height="20"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>`;
-
-    const typeText = doc.status==='done' ? escapeHTML(doc.data.tipoDocumento)
-      : doc.status==='loading' ? 'Analizando con Groq…' : 'No se pudo analizar';
-
-    const isPlaying = currentSpeech?.id===doc.id;
-    const listenBtn = doc.status==='done'
-      ? `<button class="btn-listen-mini${isPlaying?' playing':''}" data-act="listen" data-id="${doc.id}">
-          ${isPlaying
-            ? `<svg viewBox="0 0 24 24" fill="currentColor" width="12" height="12"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>DETENER`
-            : `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="12" height="12"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>ESCUCHAR`}
-        </button>` : '';
-
-    const chevron = doc.status==='done'
-      ? `<button class="btn-icon" data-act="toggle" data-id="${doc.id}"><svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><polyline points="6 9 12 15 18 9"/></svg></button>` : '';
-
-    const deleteBtn = `<button class="btn-icon" data-act="delete" data-id="${doc.id}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6m5 0V4a2 2 0 0 1 2-2h0a2 2 0 0 1 2 2v2"/></svg></button>`;
-
-    let bodyHTML = '';
-    if (doc.status==='done') {
-      const isReading = currentSpeech?.id===doc.id;
-      const readingBar = isReading ? `<div class="reading-bar"><div class="reading-bar-fill" id="bar-${doc.id}"></div></div>` : '';
-      const extraActions = `
-        <div class="doc-extra-actions">
-          <button class="btn-action${isReading?' active':''}" data-act="read-full" data-id="${doc.id}">
-            ${isReading
-              ? `<svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>DETENER LECTURA`
-              : `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>LEER ANÁLISIS COMPLETO`}
-          </button>
-          <button class="btn-action" data-act="dl-txt" data-id="${doc.id}">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-            Descargar TXT
-          </button>
-          <button class="btn-action" data-act="dl-html" data-id="${doc.id}">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-            Descargar Informe
-          </button>
-        </div>`;
-      bodyHTML = `<div class="doc-body">${readingBar}<div class="doc-body-inner">${renderAnalysisBody(doc.data)}</div>${extraActions}</div>`;
-    } else if (doc.status==='error') {
-      bodyHTML = `<div class="doc-error-msg">${escapeHTML(doc.error||'Error desconocido')}</div>`;
-    }
-
-    el.innerHTML = `
-      <div class="doc-head" data-act="toggle" data-id="${doc.id}">
-        <div class="doc-status ${doc.status}">${statusIcon}</div>
-        <div class="doc-info">
-          <div class="doc-filename"><span class="file-badge ${doc.kind}">${doc.kind.toUpperCase()}</span><span>${escapeHTML(doc.file.name)}</span></div>
-          <div class="doc-type ${doc.status!=='done'?'pending':''}">${typeText}</div>
-        </div>
-        <div class="doc-actions">${listenBtn}${chevron}${deleteBtn}</div>
-      </div>${bodyHTML}`;
-
-    el.querySelectorAll('[data-act]').forEach(btn => {
-      btn.addEventListener('click', e => {
-        e.stopPropagation();
-        const act = btn.dataset.act, id = parseInt(btn.dataset.id,10);
-        if (act==='toggle')   toggleDoc(id);
-        else if (act==='delete')  deleteDoc(id);
-        else if (act==='listen')  toggleSpeech(id);
-        else if (act==='read-full') toggleFullReading(id);
-        else if (act==='dl-txt')  downloadTxt(id);
-        else if (act==='dl-html') downloadHtml(id);
-      });
-    });
-    return el;
-  }
-
-  function renderAnalysisBody(a) {
-    const partesHTML = a.partes?.length
-      ? a.partes.map(p=>`<div class="list-item"><p class="item-name">${escapeHTML(p.nombre)}</p><p class="item-role">${escapeHTML(p.rol)}</p></div>`).join('')
-      : `<p class="empty">No identificadas.</p>`;
-    const fechasHTML = a.fechasClave?.length
-      ? a.fechasClave.map(f=>`<div class="list-item"><p class="item-date">${escapeHTML(f.fecha)}</p><p class="item-desc">${escapeHTML(f.descripcion)}</p></div>`).join('')
-      : `<p class="empty">Sin fechas relevantes.</p>`;
-    const clausulasHTML = a.clausulasClave?.length ? `
-      <section><div class="section-label">Cláusulas clave</div><div class="clauses">
-        ${a.clausulasClave.map((c,i)=>`<div class="clause"><div class="clause-num">${String(i+1).padStart(2,'0')}</div><div><p class="clause-title">${escapeHTML(c.titulo)}</p><p class="clause-detail">${escapeHTML(c.detalle)}</p></div></div>`).join('')}
-      </div></section>` : '';
-    const alertasHTML = a.alertas?.length ? `
-      <section><div class="section-label">Alertas y posibles errores</div><div class="alerts">
-        ${a.alertas.map(al=>{ const s=severityClass(al.severidad); return `<div class="alert ${s.cls}"><span class="alert-badge ${s.cls}">${s.label}</span><p class="alert-text">${escapeHTML(al.problema)}</p></div>`; }).join('')}
-      </div></section>`
-      : `<section class="no-alerts"><svg class="icon-md" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg><p>No se detectaron errores evidentes.</p></section>`;
-    const recsHTML = a.recomendaciones?.length ? `
-      <section class="recs"><div class="section-label">Recomendaciones</div>
-        <ul>${a.recomendaciones.map(r=>`<li><span class="rec-arrow">→</span><span>${escapeHTML(r)}</span></li>`).join('')}</ul>
-      </section>` : '';
-    return `
-      <section class="summary"><div class="section-label">Resumen</div><p class="summary-text">${escapeHTML(a.resumen)}</p></section>
-      <div class="grid-2">
-        <section class="card"><div class="section-label">Partes involucradas</div>${partesHTML}</section>
-        <section class="card"><div class="section-label">Fechas clave</div>${fechasHTML}</section>
+  el.innerHTML=`
+    <div class="doc-head" data-act="toggle" data-id="${doc.id}">
+      <div class="doc-status ${doc.status}">${statusIcon}</div>
+      <div class="doc-info">
+        <div class="doc-filename"><span class="file-badge ${doc.kind}">${doc.kind.toUpperCase()}</span><span>${escapeHTML(doc.file.name)}</span></div>
+        <div class="doc-type ${doc.status!=='done'?'pending':''}">${typeText}</div>
       </div>
-      ${clausulasHTML}${alertasHTML}${recsHTML}`;
-  }
+      <div class="doc-actions">${listenBtn}${chevron}${deleteBtn}</div>
+    </div>${bodyHTML}`;
+  el.querySelectorAll('[data-act]').forEach(btn=>{
+    btn.addEventListener('click',e=>{
+      e.stopPropagation();
+      const act=btn.dataset.act,id=parseInt(btn.dataset.id,10);
+      if(act==='toggle') toggleDoc(id);
+      else if(act==='delete') deleteDoc(id);
+      else if(act==='listen') toggleSpeech(id);
+      else if(act==='read-full') toggleFullReading(id);
+      else if(act==='dl-txt') downloadTxt(id);
+      else if(act==='dl-html') downloadHtml(id);
+    });
+  });
+  return el;
+}
 
-  function severityClass(sev) {
-    const s=(sev||'').toLowerCase();
-    if(s==='alta')  return {cls:'high',label:'ALTA'};
-    if(s==='media') return {cls:'med', label:'MEDIA'};
-    return {cls:'low',label:'BAJA'};
-  }
+function renderAnalysisBody(doc){
+  const a=doc.data;
+  const score=a.puntaje??'—';
+  const nivel=(a.nivelRiesgo||'').toLowerCase();
+  const scColor=nivel==='bajo'?'#4caf50':nivel==='alto'?'#f44336':'#ff9800';
+  // Score banner
+  const banner=`<div class="score-banner">
+    <div class="score-circle" style="border-color:${scColor}">
+      <span class="score-num" style="color:${scColor}">${score}</span>
+      <span class="score-lbl">/100</span>
+    </div>
+    <div class="score-meta">
+      <p class="score-title">${escapeHTML(a.tipoDocumento)}</p>
+      <p class="score-sub">Nivel de riesgo: ${escapeHTML(a.nivelRiesgo||'—')}</p>
+    </div>
+  </div>`;
+  // Resumen ejecutivo
+  const execResumen=a.resumenEjecutivo?`<section class="summary" style="border-left-color:var(--ink)"><div class="section-label">Resumen ejecutivo</div><p class="summary-text" style="font-size:.95rem">${escapeHTML(a.resumenEjecutivo)}</p></section>`:'';
+  // Resumen
+  const resumen=`<section class="summary"><div class="section-label">Resumen</div><p class="summary-text">${escapeHTML(a.resumen)}</p></section>`;
+  // Partes + Fechas
+  const partesHTML=a.partes?.length?a.partes.map(p=>`<div class="list-item"><p class="item-name">${escapeHTML(p.nombre)}</p><p class="item-role">${escapeHTML(p.rol)}</p>${p.identificacion?`<p class="item-desc">ID: ${escapeHTML(p.identificacion)}</p>`:''}</div>`).join(''):`<p class="empty">No identificadas.</p>`;
+  const fechasHTML=a.fechasClave?.length?a.fechasClave.map(f=>`<div class="list-item"><p class="item-date">${escapeHTML(f.fecha)}</p><p class="item-desc">${escapeHTML(f.descripcion)}</p></div>`).join(''):`<p class="empty">Sin fechas relevantes.</p>`;
+  const grid2=`<div class="grid-2"><section class="card"><div class="section-label">Partes involucradas</div>${partesHTML}</section><section class="card"><div class="section-label">Fechas clave</div>${fechasHTML}</section></div>`;
+  // Montos
+  const montosHTML=a.montos?.length?`<section><div class="section-label">Montos y valores</div><table class="montos-table"><thead><tr><th>Descripción</th><th>Valor</th><th>Tipo</th></tr></thead><tbody>${a.montos.map(m=>`<tr><td>${escapeHTML(m.descripcion)}</td><td class="monto-val">${escapeHTML(m.valor)}</td><td><span class="tag">${escapeHTML(m.tipo)}</span></td></tr>`).join('')}</tbody></table></section>`:'';
+  // PRC
+  const prosLi=(a.pros||[]).map(p=>`<li><span class="prc-icon">✓</span>${escapeHTML(p)}</li>`).join('')||'<li><em style="color:var(--ink-soft);font-size:.85rem">Ninguno identificado</em></li>';
+  const contrasLi=(a.contras||[]).map(c=>`<li><span class="prc-icon">✗</span>${escapeHTML(c)}</li>`).join('')||'<li><em style="color:var(--ink-soft);font-size:.85rem">Ninguno identificado</em></li>';
+  const revisarLi=(a.cosasARevisar||[]).map(r=>`<li><span class="prc-icon">⚑</span>${escapeHTML(r)}</li>`).join('')||'<li><em style="color:var(--ink-soft);font-size:.85rem">Ninguno</em></li>';
+  const prc=`<section><div class="section-label">Evaluación del documento</div><div class="prc-grid">
+    <div class="prc-card pros"><div class="section-label">✓ Puntos a favor</div><ul class="prc-list">${prosLi}</ul></div>
+    <div class="prc-card contras"><div class="section-label">✗ Contras y riesgos</div><ul class="prc-list">${contrasLi}</ul></div>
+    <div class="prc-card revisar"><div class="section-label">⚑ Cosas a revisar</div><ul class="prc-list">${revisarLi}</ul></div>
+  </div></section>`;
+  // Clausulas
+  const clausulasHTML=a.clausulasClave?.length?`<section><div class="section-label">Cláusulas clave</div><div class="clauses">${a.clausulasClave.map((c,i)=>`<div class="clause"><div class="clause-num">${String(i+1).padStart(2,'0')}</div><div><p class="clause-title">${escapeHTML(c.titulo)}</p><p class="clause-detail">${escapeHTML(c.detalle)}</p>${c.impacto?`<span class="clause-impact ${(c.impacto||'').toLowerCase()}">Impacto ${escapeHTML(c.impacto)}</span>`:''}</div></div>`).join('')}</div></section>`:'';
+  // Alertas
+  const alertasHTML=a.alertas?.length?`<section><div class="section-label">Alertas y riesgos</div><div class="alerts">${a.alertas.map(al=>{const s=sevClass(al.severidad);return`<div class="alert ${s.cls}"><span class="alert-badge ${s.cls}">${s.label}</span><p class="alert-text">${escapeHTML(al.problema)}</p></div>`;}).join('')}</div></section>`:`<section class="no-alerts"><svg class="icon-md" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg><p>No se detectaron alertas evidentes.</p></section>`;
+  // Terminos
+  const terminosHTML=a.terminosImportantes?.length?`<section><div class="section-label">Términos importantes</div><div class="tag-list">${a.terminosImportantes.map(t=>`<span class="tag">${escapeHTML(t)}</span>`).join('')}</div></section>`:'';
+  // Recs
+  const recsHTML=a.recomendaciones?.length?`<section class="recs"><div class="section-label">Recomendaciones</div><ul>${a.recomendaciones.map(r=>`<li><span class="rec-arrow">→</span><span>${escapeHTML(r)}</span></li>`).join('')}</ul></section>`:'';
+  return banner+execResumen+resumen+grid2+montosHTML+prc+clausulasHTML+alertasHTML+terminosHTML+recsHTML;
+}
 
-  function escapeHTML(s) {
-    return String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
-  }
+function sevClass(sev){const s=(sev||'').toLowerCase();if(s==='alta')return{cls:'high',label:'ALTA'};if(s==='media')return{cls:'med',label:'MEDIA'};return{cls:'low',label:'BAJA'};}
+function escapeHTML(s){return String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
+function toggleDoc(id){const doc=documents.get(id);if(!doc||doc.status!=='done')return;doc.expanded=!doc.expanded;renderDocs();}
+function deleteDoc(id){if(currentSpeech?.id===id)stopSpeech();documents.delete(id);renderAll();}
+function stopSpeech(){window.speechSynthesis?.cancel();currentSpeech=null;}
 
-  function toggleDoc(id) {
-    const doc=documents.get(id);
-    if(!doc||doc.status!=='done') return;
-    doc.expanded=!doc.expanded; renderDocs();
-  }
-  function deleteDoc(id) { if(currentSpeech?.id===id) stopSpeech(); documents.delete(id); renderAll(); }
+function toggleSpeech(id){
+  const doc=documents.get(id);if(!doc||!doc.data?.lecturaVoz)return;
+  if(currentSpeech?.id===id){stopSpeech();renderDocs();return;}
+  stopSpeech();
+  const u=new SpeechSynthesisUtterance(doc.data.lecturaVoz);
+  u.lang='es-ES';u.rate=0.95;u.pitch=1;
+  u.onend=()=>{currentSpeech=null;renderDocs();};u.onerror=u.onend;
+  currentSpeech={id,utterance:u};window.speechSynthesis.speak(u);renderDocs();
+}
 
-  function stopSpeech() { window.speechSynthesis?.cancel(); currentSpeech=null; }
+function buildFullText(d){
+  const lines=[];
+  lines.push(`Análisis de: ${d.tipoDocumento}. Nivel de riesgo: ${d.nivelRiesgo||'no determinado'}. Puntaje: ${d.puntaje??'—'} de 100.`);
+  lines.push(d.resumen);
+  if(d.partes?.length){lines.push('Partes involucradas.');d.partes.forEach(p=>lines.push(`${p.nombre}, ${p.rol}.`));}
+  if(d.fechasClave?.length){lines.push('Fechas clave.');d.fechasClave.forEach(f=>lines.push(`${f.fecha}: ${f.descripcion}.`));}
+  if(d.montos?.length){lines.push('Montos.');d.montos.forEach(m=>lines.push(`${m.descripcion}: ${m.valor}.`));}
+  if(d.pros?.length){lines.push('Puntos a favor.');d.pros.forEach((p,i)=>lines.push(`${i+1}. ${p}.`));}
+  if(d.contras?.length){lines.push('Contras y riesgos.');d.contras.forEach((c,i)=>lines.push(`${i+1}. ${c}.`));}
+  if(d.cosasARevisar?.length){lines.push('Cosas a revisar.');d.cosasARevisar.forEach((r,i)=>lines.push(`${i+1}. ${r}.`));}
+  if(d.clausulasClave?.length){lines.push('Cláusulas importantes.');d.clausulasClave.forEach((c,i)=>lines.push(`${i+1}. ${c.titulo}: ${c.detalle}.`));}
+  if(d.alertas?.length){lines.push('Alertas detectadas.');d.alertas.forEach(a=>lines.push(`Severidad ${a.severidad}: ${a.problema}.`));}
+  if(d.recomendaciones?.length){lines.push('Recomendaciones.');d.recomendaciones.forEach((r,i)=>lines.push(`${i+1}. ${r}.`));}
+  return lines.join(' ');
+}
 
-  function toggleSpeech(id) {
-    const doc=documents.get(id);
-    if(!doc||!doc.data?.lecturaVoz) return;
-    if(currentSpeech?.id===id){ stopSpeech(); renderDocs(); return; }
-    stopSpeech();
-    const u=new SpeechSynthesisUtterance(doc.data.lecturaVoz);
-    u.lang='es-ES'; u.rate=0.95; u.pitch=1;
-    u.onend=()=>{ currentSpeech=null; renderDocs(); };
-    u.onerror=u.onend;
-    currentSpeech={id,utterance:u};
-    window.speechSynthesis.speak(u);
-    renderDocs();
-  }
+function toggleFullReading(id){
+  const doc=documents.get(id);if(!doc||!doc.data)return;
+  if(currentSpeech?.id===id){stopSpeech();renderDocs();return;}
+  stopSpeech();
+  const fullText=buildFullText(doc.data);
+  const u=new SpeechSynthesisUtterance(fullText);
+  u.lang='es-ES';u.rate=0.92;u.pitch=1;
+  const duration=(fullText.length/13)*1000;let startTime=null;
+  function tick(){if(!currentSpeech||currentSpeech.id!==id)return;if(!startTime)startTime=Date.now();const bar=document.getElementById(`bar-${id}`);if(bar){const pct=Math.min(((Date.now()-startTime)/duration)*100,99);bar.style.width=pct+'%';}requestAnimationFrame(tick);}
+  u.onstart=()=>{startTime=Date.now();requestAnimationFrame(tick);};
+  u.onend=()=>{const bar=document.getElementById(`bar-${id}`);if(bar)bar.style.width='100%';setTimeout(()=>{currentSpeech=null;renderDocs();},500);};
+  u.onerror=()=>{currentSpeech=null;renderDocs();};
+  currentSpeech={id,utterance:u};window.speechSynthesis.speak(u);renderDocs();
+}
 
-  function buildFullText(d) {
-    const lines=[];
-    lines.push(`Análisis de: ${d.tipoDocumento}.`);
-    lines.push(d.resumen);
-    if(d.partes?.length){ lines.push('Partes involucradas.'); d.partes.forEach(p=>lines.push(`${p.nombre}, en calidad de ${p.rol}.`)); }
-    if(d.fechasClave?.length){ lines.push('Fechas clave.'); d.fechasClave.forEach(f=>lines.push(`${f.fecha}: ${f.descripcion}.`)); }
-    if(d.clausulasClave?.length){ lines.push('Cláusulas importantes.'); d.clausulasClave.forEach((c,i)=>lines.push(`${i+1}. ${c.titulo}: ${c.detalle}.`)); }
-    if(d.alertas?.length){ lines.push('Alertas detectadas.'); d.alertas.forEach(a=>lines.push(`Severidad ${a.severidad}: ${a.problema}.`)); }
-    if(d.recomendaciones?.length){ lines.push('Recomendaciones.'); d.recomendaciones.forEach((r,i)=>lines.push(`${i+1}. ${r}.`)); }
-    return lines.join(' ');
-  }
+function readAllDocs(){
+  const done=Array.from(documents.values()).filter(d=>d.status==='done');if(!done.length)return;
+  stopSpeech();
+  const allText=done.map((doc,i)=>`Documento ${i+1}: ${doc.file.name}. ${buildFullText(doc.data)}`).join(' … Siguiente documento. ');
+  const u=new SpeechSynthesisUtterance(allText);
+  u.lang='es-ES';u.rate=0.92;u.pitch=1;
+  u.onend=()=>{currentSpeech=null;};u.onerror=()=>{currentSpeech=null;};
+  currentSpeech={id:-1,utterance:u};window.speechSynthesis.speak(u);
+}
 
-  function toggleFullReading(id) {
-    const doc=documents.get(id);
-    if(!doc||!doc.data) return;
-    if(currentSpeech?.id===id){ stopSpeech(); renderDocs(); return; }
-    stopSpeech();
-    const fullText=buildFullText(doc.data);
-    const u=new SpeechSynthesisUtterance(fullText);
-    u.lang='es-ES'; u.rate=0.92; u.pitch=1;
-    const avgCPS=13;
-    const duration=(fullText.length/avgCPS)*1000;
-    let startTime=null;
-    function tick(){
-      if(!currentSpeech||currentSpeech.id!==id) return;
-      if(!startTime) startTime=Date.now();
-      const bar=document.getElementById(`bar-${id}`);
-      if(bar){ const pct=Math.min(((Date.now()-startTime)/duration)*100,99); bar.style.width=pct+'%'; }
-      requestAnimationFrame(tick);
-    }
-    u.onstart=()=>{ startTime=Date.now(); requestAnimationFrame(tick); };
-    u.onend=()=>{ const bar=document.getElementById(`bar-${id}`); if(bar) bar.style.width='100%'; setTimeout(()=>{ currentSpeech=null; renderDocs(); },500); };
-    u.onerror=()=>{ currentSpeech=null; renderDocs(); };
-    currentSpeech={id,utterance:u};
-    window.speechSynthesis.speak(u);
-    renderDocs();
-  }
+// ── DOWNLOADS ─────────────────────────────────────────────────────────────────
+function downloadTxt(id){
+  const doc=documents.get(id);if(!doc?.data)return;
+  const d=doc.data;
+  const fecha=new Date().toLocaleDateString('es-PA',{day:'2-digit',month:'long',year:'numeric'});
+  const sep='─'.repeat(60);
+  const L=[];
+  L.push('═'.repeat(60));L.push('  LEX · ANÁLISIS DOCUMENTAL PRO');L.push('═'.repeat(60));
+  L.push(`ARCHIVO:  ${doc.file.name}`);L.push(`TIPO:     ${d.tipoDocumento}`);
+  L.push(`PUNTAJE:  ${d.puntaje??'—'}/100  ·  RIESGO: ${(d.nivelRiesgo||'').toUpperCase()}`);
+  L.push(`FECHA:    ${fecha}`);L.push('');
+  L.push(sep);L.push('RESUMEN EJECUTIVO');L.push(sep);L.push(d.resumenEjecutivo||d.resumen);L.push('');
+  L.push(sep);L.push('RESUMEN');L.push(sep);L.push(d.resumen);L.push('');
+  if(d.partes?.length){L.push(sep);L.push('PARTES INVOLUCRADAS');L.push(sep);d.partes.forEach(p=>{L.push(`▸ ${p.nombre}`);L.push(`  Rol: ${p.rol}`);if(p.identificacion)L.push(`  ID: ${p.identificacion}`);L.push('');});}
+  if(d.fechasClave?.length){L.push(sep);L.push('FECHAS CLAVE');L.push(sep);d.fechasClave.forEach(f=>{L.push(`▸ ${f.fecha}`);L.push(`  ${f.descripcion}`);L.push('');});}
+  if(d.montos?.length){L.push(sep);L.push('MONTOS Y VALORES');L.push(sep);d.montos.forEach(m=>L.push(`▸ ${m.descripcion}: ${m.valor} [${m.tipo}]`));L.push('');}
+  if(d.pros?.length){L.push(sep);L.push('PUNTOS A FAVOR');L.push(sep);d.pros.forEach((p,i)=>L.push(`${i+1}. ${p}`));L.push('');}
+  if(d.contras?.length){L.push(sep);L.push('CONTRAS Y RIESGOS');L.push(sep);d.contras.forEach((c,i)=>L.push(`${i+1}. ${c}`));L.push('');}
+  if(d.cosasARevisar?.length){L.push(sep);L.push('COSAS A REVISAR');L.push(sep);d.cosasARevisar.forEach((r,i)=>L.push(`${i+1}. ${r}`));L.push('');}
+  if(d.clausulasClave?.length){L.push(sep);L.push('CLÁUSULAS IMPORTANTES');L.push(sep);d.clausulasClave.forEach((c,i)=>{L.push(`${i+1}. ${c.titulo.toUpperCase()} [Impacto: ${c.impacto||'—'}]`);L.push(`   ${c.detalle}`);L.push('');});}
+  if(d.alertas?.length){L.push(sep);L.push('ALERTAS Y RIESGOS');L.push(sep);d.alertas.forEach(a=>{L.push(`[${(a.severidad||'').toUpperCase()}] ${a.problema}`);L.push('');});}
+  if(d.recomendaciones?.length){L.push(sep);L.push('RECOMENDACIONES');L.push(sep);d.recomendaciones.forEach((r,i)=>L.push(`${i+1}. ${r}`));L.push('');}
+  L.push('═'.repeat(60));L.push('  Generado por Lex · Groq LLaMA 3.3');
+  L.push('  Análisis informativo. No sustituye asesoría legal profesional.');L.push('═'.repeat(60));
+  triggerDownload(L.join('\n'),doc.file.name.replace(/\.[^.]+$/,'')+'_analisis.txt','text/plain;charset=utf-8');
+}
 
-  function downloadTxt(id) {
-    const doc=documents.get(id);
-    if(!doc?.data) return;
+function downloadHtml(id){
+  const doc=documents.get(id);if(!doc?.data)return;
+  const fecha=new Date().toLocaleDateString('es-PA',{day:'2-digit',month:'long',year:'numeric'});
+  triggerDownload(buildHtmlReport([doc],fecha,false),doc.file.name.replace(/\.[^.]+$/,'')+'_informe.html','text/html;charset=utf-8');
+}
+
+function downloadExecutiveTxt(){
+  const done=Array.from(documents.values()).filter(d=>d.status==='done');
+  if(!done.length){alert('No hay documentos analizados aún.');return;}
+  const fecha=new Date().toLocaleDateString('es-PA',{day:'2-digit',month:'long',year:'numeric'});
+  const L=[];
+  L.push('═'.repeat(60));L.push('  LEX · RESUMEN EJECUTIVO GLOBAL');L.push('═'.repeat(60));
+  L.push(`Fecha: ${fecha}  ·  Documentos: ${done.length}`);L.push('');
+  done.forEach((doc,i)=>{
     const d=doc.data;
-    const fecha=new Date().toLocaleDateString('es-PA',{day:'2-digit',month:'long',year:'numeric'});
-    const sep='─'.repeat(60);
-    const lines=[];
-    lines.push('═'.repeat(60));
-    lines.push('  LEX · ANÁLISIS DOCUMENTAL');
-    lines.push('═'.repeat(60));
-    lines.push(`ARCHIVO:  ${doc.file.name}`);
-    lines.push(`TIPO:     ${d.tipoDocumento}`);
-    lines.push(`FECHA:    ${fecha}`);
-    lines.push('');
-    lines.push(sep); lines.push('RESUMEN'); lines.push(sep);
-    lines.push(d.resumen); lines.push('');
-    if(d.partes?.length){
-      lines.push(sep); lines.push('PARTES INVOLUCRADAS'); lines.push(sep);
-      d.partes.forEach(p=>{ lines.push(`▸ ${p.nombre}`); lines.push(`  Rol: ${p.rol}`); lines.push(''); });
-    }
-    if(d.fechasClave?.length){
-      lines.push(sep); lines.push('FECHAS CLAVE'); lines.push(sep);
-      d.fechasClave.forEach(f=>{ lines.push(`▸ ${f.fecha}`); lines.push(`  ${f.descripcion}`); lines.push(''); });
-    }
-    if(d.clausulasClave?.length){
-      lines.push(sep); lines.push('CLÁUSULAS IMPORTANTES'); lines.push(sep);
-      d.clausulasClave.forEach((c,i)=>{ lines.push(`${i+1}. ${c.titulo.toUpperCase()}`); lines.push(`   ${c.detalle}`); lines.push(''); });
-    }
-    if(d.alertas?.length){
-      lines.push(sep); lines.push('ALERTAS Y RIESGOS'); lines.push(sep);
-      d.alertas.forEach(a=>{ lines.push(`[${a.severidad.toUpperCase()}] ${a.problema}`); lines.push(''); });
-    }
-    if(d.recomendaciones?.length){
-      lines.push(sep); lines.push('RECOMENDACIONES'); lines.push(sep);
-      d.recomendaciones.forEach((r,i)=>lines.push(`${i+1}. ${r}`)); lines.push('');
-    }
-    lines.push('═'.repeat(60));
-    lines.push('  Generado por Lex · Groq LLaMA 3');
-    lines.push('  Análisis informativo. No sustituye asesoría legal profesional.');
-    lines.push('═'.repeat(60));
-    triggerDownload(lines.join('\n'), doc.file.name.replace(/\.[^.]+$/,'')+'_analisis.txt', 'text/plain;charset=utf-8');
+    L.push('─'.repeat(60));
+    L.push(`${i+1}. ${d.tipoDocumento.toUpperCase()}`);
+    L.push(`   Archivo: ${doc.file.name}`);
+    L.push(`   Puntaje: ${d.puntaje??'—'}/100  ·  Riesgo: ${(d.nivelRiesgo||'').toUpperCase()}`);L.push('');
+    L.push('   RESUMEN EJECUTIVO');
+    L.push(`   ${d.resumenEjecutivo||d.resumen}`);L.push('');
+    const criticas=(d.alertas||[]).filter(a=>a.severidad==='alta');
+    if(criticas.length){L.push('   ALERTAS CRÍTICAS:');criticas.forEach(a=>L.push(`   ⚠ ${a.problema}`));L.push('');}
+    if(d.recomendaciones?.length){L.push('   RECOMENDACIONES:');d.recomendaciones.slice(0,3).forEach((r,i)=>L.push(`   ${i+1}. ${r}`));L.push('');}
+  });
+  L.push('═'.repeat(60));L.push('  Generado por Lex · Groq LLaMA 3.3');
+  L.push('  Análisis informativo. No sustituye asesoría legal profesional.');L.push('═'.repeat(60));
+  triggerDownload(L.join('\n'),`Lex_Resumen_Ejecutivo_${Date.now()}.txt`,'text/plain;charset=utf-8');
+}
+
+function downloadGlobalHtml(){
+  const done=Array.from(documents.values()).filter(d=>d.status==='done');
+  if(!done.length){alert('No hay documentos analizados aún.');return;}
+  const fecha=new Date().toLocaleDateString('es-PA',{day:'2-digit',month:'long',year:'numeric'});
+  triggerDownload(buildHtmlReport(done,fecha,true),`Lex_Informe_Global_${Date.now()}.html`,'text/html;charset=utf-8');
+}
+
+function buildHtmlReport(docs,fecha,isGlobal){
+  const ac=s=>s==='alta'?'#a71f2d':s==='media'?'#b57a1f':'#5a6b3c';
+  const ab=s=>s==='alta'?'#f7e5e4':s==='media'?'#f7ecd4':'#ebeddc';
+  const sc=n=>typeof n==='number'?(n>=70?'#4caf50':n>=40?'#ff9800':'#f44336'):'#888';
+
+  function docBlock(doc){
+    const d=doc.data;
+    const scCol=sc(d.puntaje);
+    const pR=(d.partes||[]).map(p=>`<tr><td style="padding:8px 12px;border-bottom:1px solid #e6dcc8;font-weight:600">${p.nombre}</td><td style="padding:8px 12px;border-bottom:1px solid #e6dcc8;color:#732939;font-size:.85rem;text-transform:uppercase">${p.rol}</td><td style="padding:8px 12px;border-bottom:1px solid #e6dcc8;font-size:.8rem;color:#55504a">${p.identificacion||''}</td></tr>`).join('');
+    const fR=(d.fechasClave||[]).map(f=>`<tr><td style="padding:8px 12px;border-bottom:1px solid #e6dcc8;font-weight:600;color:#732939">${f.fecha}</td><td style="padding:8px 12px;border-bottom:1px solid #e6dcc8">${f.descripcion}</td></tr>`).join('');
+    const mR=(d.montos||[]).map(m=>`<tr><td style="padding:8px 12px;border-bottom:1px solid #e6dcc8">${m.descripcion}</td><td style="padding:8px 12px;border-bottom:1px solid #e6dcc8;font-weight:700;color:#732939">${m.valor}</td><td style="padding:8px 12px;border-bottom:1px solid #e6dcc8;font-size:.75rem;text-transform:uppercase">${m.tipo}</td></tr>`).join('');
+    const pLi=(d.pros||[]).map(p=>`<li style="padding:4px 0;font-size:.875rem">✓ ${p}</li>`).join('');
+    const cLi=(d.contras||[]).map(c=>`<li style="padding:4px 0;font-size:.875rem">✗ ${c}</li>`).join('');
+    const rLi=(d.cosasARevisar||[]).map(r=>`<li style="padding:4px 0;font-size:.875rem">⚑ ${r}</li>`).join('');
+    const clDiv=(d.clausulasClave||[]).map((c,i)=>`<div style="display:flex;gap:12px;padding:12px 0;border-bottom:1px solid #e6dcc8"><div style="flex-shrink:0;width:32px;height:32px;background:#1b1815;color:#f1e9db;display:flex;align-items:center;justify-content:center;font-size:.7rem;border-radius:2px">${String(i+1).padStart(2,'0')}</div><div><p style="font-weight:600;margin-bottom:4px">${c.titulo}</p><p style="font-size:.875rem;color:#55504a">${c.detalle}</p>${c.impacto?`<span style="font-size:.65rem;padding:2px 6px;background:${ab(c.impacto)};color:${ac(c.impacto)};text-transform:uppercase;display:inline-block;margin-top:4px">Impacto ${c.impacto}</span>`:''}</div></div>`).join('');
+    const alDiv=(d.alertas||[]).map(a=>`<div style="padding:10px 14px;margin-bottom:8px;background:${ab(a.severidad)};border-left:3px solid ${ac(a.severidad)};display:flex;gap:10px"><span style="flex-shrink:0;background:${ac(a.severidad)};color:#fff;font-size:.65rem;padding:2px 6px;align-self:flex-start">${(a.severidad||'').toUpperCase()}</span><p style="font-size:.875rem">${a.problema}</p></div>`).join('');
+    const rLiRec=(d.recomendaciones||[]).map(r=>`<li style="padding:6px 0;border-bottom:1px dotted rgba(241,233,219,.3)">→ ${r}</li>`).join('');
+    const sec=(t,c)=>c?`<div style="background:rgba(255,255,255,.5);padding:20px;margin-bottom:16px"><p style="font-size:.7rem;font-family:JetBrains Mono,monospace;text-transform:uppercase;letter-spacing:.2em;color:#55504a;margin-bottom:12px">${t}</p>${c}</div>`:'';
+    return`<div style="margin-bottom:48px;padding-bottom:48px;border-bottom:2px solid #e6dcc8">
+      <div style="display:flex;align-items:center;gap:20px;background:#1b1815;color:#f1e9db;padding:20px;margin-bottom:20px">
+        <div style="width:64px;height:64px;border-radius:50%;border:2px solid ${scCol};display:flex;flex-direction:column;align-items:center;justify-content:center;flex-shrink:0">
+          <span style="font-size:1.4rem;font-weight:700;color:${scCol}">${d.puntaje??'—'}</span><span style="font-size:.55rem;color:rgba(241,233,219,.5)">/100</span>
+        </div>
+        <div>
+          <p style="font-size:1.25rem;font-family:'Fraunces',serif;margin-bottom:4px">${d.tipoDocumento}</p>
+          <p style="font-size:.75rem;color:rgba(241,233,219,.6);font-family:JetBrains Mono,monospace">Archivo: ${doc.file.name} · Riesgo: ${(d.nivelRiesgo||'').toUpperCase()} · ${fecha}</p>
+        </div>
+      </div>
+      ${d.resumenEjecutivo?`<div style="background:rgba(255,255,255,.5);padding:20px;margin-bottom:16px;border-left:3px solid #1b1815"><p style="font-size:.7rem;font-family:JetBrains Mono,monospace;text-transform:uppercase;letter-spacing:.2em;color:#55504a;margin-bottom:10px">Resumen ejecutivo</p><p style="font-size:1rem;line-height:1.6;font-family:'Fraunces',serif">${d.resumenEjecutivo}</p></div>`:''}
+      <div style="background:rgba(255,255,255,.5);padding:20px;margin-bottom:16px;border-left:3px solid #732939"><p style="font-size:.7rem;font-family:JetBrains Mono,monospace;text-transform:uppercase;letter-spacing:.2em;color:#55504a;margin-bottom:10px">Resumen</p><p style="font-size:.95rem;line-height:1.6">${d.resumen}</p></div>
+      ${sec('Partes involucradas',pR?`<table style="width:100%;border-collapse:collapse">${pR}</table>`:'')}
+      ${sec('Fechas clave',fR?`<table style="width:100%;border-collapse:collapse">${fR}</table>`:'')}
+      ${sec('Montos y valores',mR?`<table style="width:100%;border-collapse:collapse"><thead><tr><th style="padding:6px 12px;font-family:JetBrains Mono,monospace;font-size:.65rem;text-transform:uppercase;text-align:left;border-bottom:2px solid #1b1815">Descripción</th><th style="padding:6px 12px;font-family:JetBrains Mono,monospace;font-size:.65rem;text-transform:uppercase;text-align:left;border-bottom:2px solid #1b1815">Valor</th><th style="padding:6px 12px;font-family:JetBrains Mono,monospace;font-size:.65rem;text-transform:uppercase;text-align:left;border-bottom:2px solid #1b1815">Tipo</th></tr></thead><tbody>${mR}</tbody></table>`:'')}
+      ${pLi||cLi||rLi?`<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:16px">
+        <div style="padding:16px;background:#ebeddc;border-top:3px solid #5a6b3c"><p style="font-family:JetBrains Mono,monospace;font-size:.65rem;text-transform:uppercase;letter-spacing:.15em;color:#55504a;margin-bottom:8px">✓ A favor</p><ul style="list-style:none;padding:0">${pLi||'<li style="font-size:.875rem;font-style:italic">Ninguno</li>'}</ul></div>
+        <div style="padding:16px;background:#f7e5e4;border-top:3px solid #a71f2d"><p style="font-family:JetBrains Mono,monospace;font-size:.65rem;text-transform:uppercase;letter-spacing:.15em;color:#55504a;margin-bottom:8px">✗ Contras</p><ul style="list-style:none;padding:0">${cLi||'<li style="font-size:.875rem;font-style:italic">Ninguno</li>'}</ul></div>
+        <div style="padding:16px;background:#f7ecd4;border-top:3px solid #b57a1f"><p style="font-family:JetBrains Mono,monospace;font-size:.65rem;text-transform:uppercase;letter-spacing:.15em;color:#55504a;margin-bottom:8px">⚑ Revisar</p><ul style="list-style:none;padding:0">${rLi||'<li style="font-size:.875rem;font-style:italic">Ninguno</li>'}</ul></div>
+      </div>`:''}
+      ${sec('Cláusulas importantes',clDiv)}
+      ${sec('Alertas y riesgos',alDiv)}
+      ${rLiRec?`<div style="background:#1b1815;color:#f1e9db;padding:20px;margin-bottom:16px"><p style="font-family:JetBrains Mono,monospace;font-size:.7rem;text-transform:uppercase;letter-spacing:.2em;color:rgba(241,233,219,.6);margin-bottom:12px">Recomendaciones</p><ul style="list-style:none;padding:0;margin:0">${rLiRec}</ul></div>`:''}
+    </div>`;
   }
 
-  function downloadHtml(id) {
-    const doc=documents.get(id);
-    if(!doc?.data) return;
-    const d=doc.data;
-    const fecha=new Date().toLocaleDateString('es-PA',{day:'2-digit',month:'long',year:'numeric'});
-    const ac=s=>s==='alta'?'#a71f2d':s==='media'?'#b57a1f':'#5a6b3c';
-    const ab=s=>s==='alta'?'#f7e5e4':s==='media'?'#f7ecd4':'#ebeddc';
-
-    const partesRows=(d.partes||[]).map(p=>`<tr><td style="padding:8px 12px;border-bottom:1px solid #e6dcc8;font-weight:600">${p.nombre}</td><td style="padding:8px 12px;border-bottom:1px solid #e6dcc8;color:#732939;font-size:.85rem;text-transform:uppercase">${p.rol}</td></tr>`).join('');
-    const fechasRows=(d.fechasClave||[]).map(f=>`<tr><td style="padding:8px 12px;border-bottom:1px solid #e6dcc8;font-weight:600;color:#732939">${f.fecha}</td><td style="padding:8px 12px;border-bottom:1px solid #e6dcc8">${f.descripcion}</td></tr>`).join('');
-    const clausulasDivs=(d.clausulasClave||[]).map((c,i)=>`<div style="display:flex;gap:12px;padding:12px 0;border-bottom:1px solid #e6dcc8"><div style="flex-shrink:0;width:32px;height:32px;background:#1b1815;color:#f1e9db;display:flex;align-items:center;justify-content:center;font-size:.7rem;border-radius:2px">${String(i+1).padStart(2,'0')}</div><div><p style="font-weight:600;margin-bottom:4px">${c.titulo}</p><p style="font-size:.875rem;color:#55504a">${c.detalle}</p></div></div>`).join('');
-    const alertasDivs=(d.alertas||[]).map(a=>`<div style="padding:10px 14px;margin-bottom:8px;background:${ab(a.severidad)};border-left:3px solid ${ac(a.severidad)};display:flex;gap:10px"><span style="flex-shrink:0;background:${ac(a.severidad)};color:#fff;font-size:.65rem;padding:2px 6px;align-self:flex-start">${a.severidad.toUpperCase()}</span><p style="font-size:.875rem">${a.problema}</p></div>`).join('');
-    const recsItems=(d.recomendaciones||[]).map(r=>`<li style="padding:6px 0;border-bottom:1px dotted #e6dcc8">→ ${r}</li>`).join('');
-
-    const sec=(titulo,contenido)=>contenido?`<div style="background:rgba(255,255,255,0.5);padding:20px;margin-bottom:20px"><p style="font-family:'JetBrains Mono',monospace;font-size:.7rem;text-transform:uppercase;letter-spacing:.2em;color:#55504a;margin-bottom:12px">${titulo}</p>${contenido}</div>`:'';
-
-    const report=`<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"/>
-<title>Informe · ${d.tipoDocumento}</title>
+  const title=isGlobal?`Informe Global · ${docs.length} documentos`:`Informe · ${docs[0].data.tipoDocumento}`;
+  return`<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"/>
+<title>${title}</title>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400&family=DM+Sans:wght@400;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"/>
-<style>body{font-family:'DM Sans',sans-serif;background:#f1e9db;color:#1b1815;margin:0;padding:0}.page{max-width:800px;margin:0 auto;padding:40px 32px}table{width:100%;border-collapse:collapse}@media print{body{background:#fff}.page{padding:20px}}</style>
+<style>body{font-family:'DM Sans',sans-serif;background:#f1e9db;color:#1b1815;margin:0;padding:0}.page{max-width:860px;margin:0 auto;padding:40px 32px}@media print{body{background:#fff}.page{padding:20px}}</style>
 </head><body><div class="page">
-  <div style="padding:24px 0 20px;border-bottom:2px solid #1b1815;margin-bottom:28px">
-    <p style="font-family:'JetBrains Mono',monospace;font-size:.7rem;letter-spacing:.25em;text-transform:uppercase;color:#732939;margin-bottom:8px">Lex · Análisis Documental</p>
-    <h1 style="font-family:'Fraunces',serif;font-weight:400;font-size:2rem;line-height:1.1;margin:0 0 12px">${d.tipoDocumento}</h1>
-    <p style="font-family:'JetBrains Mono',monospace;font-size:.75rem;color:#55504a">Archivo: <strong>${doc.file.name}</strong> &nbsp;·&nbsp; ${fecha}</p>
-  </div>
-  <div style="background:rgba(255,255,255,0.5);padding:20px;margin-bottom:20px;border-left:3px solid #732939">
-    <p style="font-family:'JetBrains Mono',monospace;font-size:.7rem;text-transform:uppercase;letter-spacing:.2em;color:#55504a;margin-bottom:10px">Resumen</p>
-    <p style="font-family:'Fraunces',serif;font-size:1.1rem;line-height:1.6">${d.resumen}</p>
-  </div>
-  ${sec('Partes involucradas', partesRows ? `<table>${partesRows}</table>` : '')}
-  ${sec('Fechas clave', fechasRows ? `<table>${fechasRows}</table>` : '')}
-  ${sec('Cláusulas importantes', clausulasDivs)}
-  ${sec('Alertas y riesgos', alertasDivs)}
-  ${recsItems ? `<div style="background:#1b1815;color:#f1e9db;padding:20px;margin-bottom:20px"><p style="font-family:'JetBrains Mono',monospace;font-size:.7rem;text-transform:uppercase;letter-spacing:.2em;color:rgba(241,233,219,.6);margin-bottom:12px">Recomendaciones</p><ul style="list-style:none;padding:0;margin:0">${recsItems}</ul></div>` : ''}
-  <p style="margin-top:28px;font-family:'JetBrains Mono',monospace;font-size:.7rem;text-align:center;color:#55504a;padding-top:16px;border-top:1px solid #e6dcc8">
-    Generado por Lex · Groq LLaMA 3 · Análisis informativo, no sustituye asesoría legal profesional.
-  </p>
+<div style="padding:24px 0 20px;border-bottom:2px solid #1b1815;margin-bottom:32px">
+  <p style="font-family:'JetBrains Mono',monospace;font-size:.7rem;letter-spacing:.25em;text-transform:uppercase;color:#732939;margin-bottom:8px">Lex · Análisis Documental Pro</p>
+  <h1 style="font-family:'Fraunces',serif;font-weight:400;font-size:2rem;line-height:1.1;margin:0 0 12px">${title}</h1>
+  <p style="font-family:'JetBrains Mono',monospace;font-size:.75rem;color:#55504a">${isGlobal?`${docs.length} documentos analizados`:''} · ${fecha}</p>
+</div>
+${docs.map(d=>docBlock(d)).join('')}
+<p style="margin-top:28px;font-family:'JetBrains Mono',monospace;font-size:.7rem;text-align:center;color:#55504a;padding-top:16px;border-top:1px solid #e6dcc8">
+  Generado por Lex · Groq LLaMA 3.3 · Análisis informativo, no sustituye asesoría legal profesional.
+</p>
 </div></body></html>`;
+}
 
-    triggerDownload(report, doc.file.name.replace(/\.[^.]+$/,'')+'_informe.html', 'text/html;charset=utf-8');
-  }
-
-  function triggerDownload(content, filename, type) {
-    const blob=new Blob([content],{type});
-    const a=document.createElement('a');
-    a.href=URL.createObjectURL(blob);
-    a.download=filename;
-    a.click();
-    URL.revokeObjectURL(a.href);
-  }
+function triggerDownload(content,filename,type){
+  const blob=new Blob([content],{type});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);a.download=filename;a.click();
+  URL.revokeObjectURL(a.href);
+}
 </script>
 </body>
 </html>
-
