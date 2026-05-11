@@ -10,6 +10,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://unpkg.com/docx@8.5.0/build/index.js"></script>
 <style>
 :root{
   --paper:#f1e9db;--paper-deep:#e6dcc8;--ink:#1b1815;--ink-soft:#55504a;
@@ -170,12 +171,15 @@ input[type="file"]{display:none;}
 .btn-action{display:inline-flex;align-items:center;gap:.4rem;padding:.45rem .9rem;border:1px solid var(--ink-soft);border-radius:2px;background:transparent;color:var(--ink);font-family:var(--font-mono);font-size:.68rem;letter-spacing:.06em;text-transform:uppercase;cursor:pointer;transition:all .2s;}
 .btn-action:hover{background:var(--ink);color:var(--paper);border-color:var(--ink);}
 .btn-action.active{background:var(--oxblood);color:var(--paper);border-color:var(--oxblood);}
+.btn-action.word{border-color:var(--sepia);color:var(--sepia);}
+.btn-action.word:hover{background:var(--sepia);color:var(--paper);border-color:var(--sepia);}
 .btn-action svg{width:13px;height:13px;flex-shrink:0;}
 /* FAB */
 .fab-wrap{position:fixed;bottom:2rem;right:2rem;z-index:100;display:flex;flex-direction:column;align-items:flex-end;gap:.5rem;}
 .fab-menu{display:flex;flex-direction:column;gap:.4rem;align-items:flex-end;margin-bottom:.25rem;}
 .fab-menu-item{display:inline-flex;align-items:center;gap:.6rem;padding:.55rem 1rem;background:var(--ink);color:var(--paper);border:none;border-radius:999px;font-family:var(--font-mono);font-size:.7rem;letter-spacing:.05em;cursor:pointer;transition:all .2s;white-space:nowrap;box-shadow:0 4px 16px rgba(0,0,0,.25);}
 .fab-menu-item:hover{background:var(--oxblood);}
+.fab-menu-item.word-item:hover{background:var(--sepia);}
 .fab-menu-item svg{width:14px;height:14px;flex-shrink:0;}
 .fab{width:56px;height:56px;border-radius:50%;background:var(--oxblood);border:none;color:var(--paper);display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 4px 20px rgba(115,41,57,.45);transition:all .2s;}
 .fab:hover{background:var(--ink);transform:scale(1.05);}
@@ -188,6 +192,10 @@ input[type="file"]{display:none;}
 .hidden{display:none!important;}
 .icon-md{width:20px;height:20px;flex-shrink:0;}
 .icon-lg{width:28px;height:28px;flex-shrink:0;}
+/* Word spinner overlay */
+.word-spinner{display:none;align-items:center;gap:.5rem;font-family:var(--font-mono);font-size:.7rem;color:var(--sepia);}
+.word-spinner.active{display:flex;}
+.word-spinner svg{animation:spin 1s linear infinite;}
 </style>
 </head>
 <body>
@@ -199,7 +207,7 @@ input[type="file"]{display:none;}
   <header>
     <div class="eyebrow"><div class="eyebrow-line"></div>Lex · Análisis Documental Pro</div>
     <h1>Sube tus documentos,<br /><em>entiéndelos en segundos.</em></h1>
-    <p class="lead">Contratos, escrituras, pagarés, actas, hojas de cálculo. Sube uno o varios archivos <strong>PDF, Word o Excel</strong>. La IA genera un análisis profesional completo: partes, cláusulas, pros, contras, riesgos, montos y más. Descarga informes individuales o un informe global y resumen ejecutivo de todos los documentos.</p>
+    <p class="lead">Contratos, escrituras, pagarés, actas, hojas de cálculo. Sube uno o varios archivos <strong>PDF, Word o Excel</strong>. La IA genera un análisis profesional completo: partes, cláusulas, pros, contras, riesgos, montos y más. Descarga informes individuales en <strong>TXT, HTML o Word (.docx)</strong>, o un informe global y resumen ejecutivo de todos los documentos.</p>
   </header>
 
   <div id="uploadZone" class="upload-zone">
@@ -256,6 +264,10 @@ input[type="file"]{display:none;}
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
       Informe Global (HTML)
     </button>
+    <button class="fab-menu-item word-item" id="fabGlobalWord">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><path d="M9 13h6"/><path d="M9 17h6"/></svg>
+      Informe Global (Word)
+    </button>
     <button class="fab-menu-item" id="fabReadAll">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
       Leer todo en voz alta
@@ -301,6 +313,7 @@ $('btnClearAll').addEventListener('click',()=>{if(!confirm('¿Eliminar todos los
 fabBtn.addEventListener('click',()=>{fabOpen=!fabOpen;fabBtn.classList.toggle('open',fabOpen);fabMenu.classList.toggle('hidden',!fabOpen);});
 $('fabExec').addEventListener('click',()=>{closeFab();downloadExecutiveTxt();});
 $('fabGlobal').addEventListener('click',()=>{closeFab();downloadGlobalHtml();});
+$('fabGlobalWord').addEventListener('click',()=>{closeFab();downloadGlobalDocx();});
 $('fabReadAll').addEventListener('click',()=>{closeFab();readAllDocs();});
 function closeFab(){fabOpen=false;fabBtn.classList.remove('open');fabMenu.classList.add('hidden');}
 
@@ -462,10 +475,14 @@ function renderDocCard(doc){
   if(doc.status==='done'){
     const isReading=currentSpeech?.id===doc.id;
     const readingBar=isReading?`<div class="reading-bar"><div class="reading-bar-fill" id="bar-${doc.id}"></div></div>`:'';
+    const wordIcon=`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><path d="M9 13h6"/><path d="M9 17h6"/></svg>`;
+    const dlIcon=`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>`;
     const extraActions=`<div class="doc-extra-actions">
       <button class="btn-action${isReading?' active':''}" data-act="read-full" data-id="${doc.id}">${isReading?`<svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>DETENER`:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>LEER COMPLETO`}</button>
-      <button class="btn-action" data-act="dl-txt" data-id="${doc.id}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>TXT</button>
-      <button class="btn-action" data-act="dl-html" data-id="${doc.id}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>INFORME HTML</button>
+      <button class="btn-action" data-act="dl-txt" data-id="${doc.id}">${dlIcon}TXT</button>
+      <button class="btn-action" data-act="dl-html" data-id="${doc.id}">${dlIcon}HTML</button>
+      <button class="btn-action word" data-act="dl-word" data-id="${doc.id}" id="word-btn-${doc.id}">${wordIcon}WORD</button>
+      <span class="word-spinner" id="word-spin-${doc.id}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="4.93" y1="4.93" x2="7.76" y2="7.76"/><line x1="16.24" y1="16.24" x2="19.07" y2="19.07"/><line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/><line x1="4.93" y1="19.07" x2="7.76" y2="16.24"/><line x1="16.24" y1="7.76" x2="19.07" y2="4.93"/></svg>Generando…</span>
     </div>`;
     bodyHTML=`<div class="doc-body">${readingBar}<div class="doc-body-inner">${renderAnalysisBody(doc)}</div>${extraActions}</div>`;
   }else if(doc.status==='error'){
@@ -490,6 +507,7 @@ function renderDocCard(doc){
       else if(act==='read-full') toggleFullReading(id);
       else if(act==='dl-txt') downloadTxt(id);
       else if(act==='dl-html') downloadHtml(id);
+      else if(act==='dl-word') downloadDocx(id);
     });
   });
   return el;
@@ -500,7 +518,6 @@ function renderAnalysisBody(doc){
   const score=a.puntaje??'—';
   const nivel=(a.nivelRiesgo||'').toLowerCase();
   const scColor=nivel==='bajo'?'#4caf50':nivel==='alto'?'#f44336':'#ff9800';
-  // Score banner
   const banner=`<div class="score-banner">
     <div class="score-circle" style="border-color:${scColor}">
       <span class="score-num" style="color:${scColor}">${score}</span>
@@ -511,17 +528,12 @@ function renderAnalysisBody(doc){
       <p class="score-sub">Nivel de riesgo: ${escapeHTML(a.nivelRiesgo||'—')}</p>
     </div>
   </div>`;
-  // Resumen ejecutivo
   const execResumen=a.resumenEjecutivo?`<section class="summary" style="border-left-color:var(--ink)"><div class="section-label">Resumen ejecutivo</div><p class="summary-text" style="font-size:.95rem">${escapeHTML(a.resumenEjecutivo)}</p></section>`:'';
-  // Resumen
   const resumen=`<section class="summary"><div class="section-label">Resumen</div><p class="summary-text">${escapeHTML(a.resumen)}</p></section>`;
-  // Partes + Fechas
   const partesHTML=a.partes?.length?a.partes.map(p=>`<div class="list-item"><p class="item-name">${escapeHTML(p.nombre)}</p><p class="item-role">${escapeHTML(p.rol)}</p>${p.identificacion?`<p class="item-desc">ID: ${escapeHTML(p.identificacion)}</p>`:''}</div>`).join(''):`<p class="empty">No identificadas.</p>`;
   const fechasHTML=a.fechasClave?.length?a.fechasClave.map(f=>`<div class="list-item"><p class="item-date">${escapeHTML(f.fecha)}</p><p class="item-desc">${escapeHTML(f.descripcion)}</p></div>`).join(''):`<p class="empty">Sin fechas relevantes.</p>`;
   const grid2=`<div class="grid-2"><section class="card"><div class="section-label">Partes involucradas</div>${partesHTML}</section><section class="card"><div class="section-label">Fechas clave</div>${fechasHTML}</section></div>`;
-  // Montos
   const montosHTML=a.montos?.length?`<section><div class="section-label">Montos y valores</div><table class="montos-table"><thead><tr><th>Descripción</th><th>Valor</th><th>Tipo</th></tr></thead><tbody>${a.montos.map(m=>`<tr><td>${escapeHTML(m.descripcion)}</td><td class="monto-val">${escapeHTML(m.valor)}</td><td><span class="tag">${escapeHTML(m.tipo)}</span></td></tr>`).join('')}</tbody></table></section>`:'';
-  // PRC
   const prosLi=(a.pros||[]).map(p=>`<li><span class="prc-icon">✓</span>${escapeHTML(p)}</li>`).join('')||'<li><em style="color:var(--ink-soft);font-size:.85rem">Ninguno identificado</em></li>';
   const contrasLi=(a.contras||[]).map(c=>`<li><span class="prc-icon">✗</span>${escapeHTML(c)}</li>`).join('')||'<li><em style="color:var(--ink-soft);font-size:.85rem">Ninguno identificado</em></li>';
   const revisarLi=(a.cosasARevisar||[]).map(r=>`<li><span class="prc-icon">⚑</span>${escapeHTML(r)}</li>`).join('')||'<li><em style="color:var(--ink-soft);font-size:.85rem">Ninguno</em></li>';
@@ -530,13 +542,9 @@ function renderAnalysisBody(doc){
     <div class="prc-card contras"><div class="section-label">✗ Contras y riesgos</div><ul class="prc-list">${contrasLi}</ul></div>
     <div class="prc-card revisar"><div class="section-label">⚑ Cosas a revisar</div><ul class="prc-list">${revisarLi}</ul></div>
   </div></section>`;
-  // Clausulas
   const clausulasHTML=a.clausulasClave?.length?`<section><div class="section-label">Cláusulas clave</div><div class="clauses">${a.clausulasClave.map((c,i)=>`<div class="clause"><div class="clause-num">${String(i+1).padStart(2,'0')}</div><div><p class="clause-title">${escapeHTML(c.titulo)}</p><p class="clause-detail">${escapeHTML(c.detalle)}</p>${c.impacto?`<span class="clause-impact ${(c.impacto||'').toLowerCase()}">Impacto ${escapeHTML(c.impacto)}</span>`:''}</div></div>`).join('')}</div></section>`:'';
-  // Alertas
   const alertasHTML=a.alertas?.length?`<section><div class="section-label">Alertas y riesgos</div><div class="alerts">${a.alertas.map(al=>{const s=sevClass(al.severidad);return`<div class="alert ${s.cls}"><span class="alert-badge ${s.cls}">${s.label}</span><p class="alert-text">${escapeHTML(al.problema)}</p></div>`;}).join('')}</div></section>`:`<section class="no-alerts"><svg class="icon-md" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg><p>No se detectaron alertas evidentes.</p></section>`;
-  // Terminos
   const terminosHTML=a.terminosImportantes?.length?`<section><div class="section-label">Términos importantes</div><div class="tag-list">${a.terminosImportantes.map(t=>`<span class="tag">${escapeHTML(t)}</span>`).join('')}</div></section>`:'';
-  // Recs
   const recsHTML=a.recomendaciones?.length?`<section class="recs"><div class="section-label">Recomendaciones</div><ul>${a.recomendaciones.map(r=>`<li><span class="rec-arrow">→</span><span>${escapeHTML(r)}</span></li>`).join('')}</ul></section>`:'';
   return banner+execResumen+resumen+grid2+montosHTML+prc+clausulasHTML+alertasHTML+terminosHTML+recsHTML;
 }
@@ -596,6 +604,231 @@ function readAllDocs(){
   u.lang='es-ES';u.rate=0.92;u.pitch=1;
   u.onend=()=>{currentSpeech=null;};u.onerror=()=>{currentSpeech=null;};
   currentSpeech={id:-1,utterance:u};window.speechSynthesis.speak(u);
+}
+
+// ── WORD / DOCX ───────────────────────────────────────────────────────────────
+async function buildDocxBlob(docsList){
+  const {Document,Packer,Paragraph,TextRun,HeadingLevel,AlignmentType,
+         Table,TableRow,TableCell,WidthType,BorderStyle,ShadingType,LevelFormat,PageBreak}=window.docx;
+
+  const fecha=new Date().toLocaleDateString('es-PA',{day:'2-digit',month:'long',year:'numeric'});
+  const brd={style:BorderStyle.SINGLE,size:1,color:'CCCCCC'};
+  const borders={top:brd,bottom:brd,left:brd,right:brd};
+  const cm={top:80,bottom:80,left:120,right:120};
+
+  const numbering={config:[
+    {reference:'bullets',levels:[{level:0,format:LevelFormat.BULLET,text:'•',alignment:AlignmentType.LEFT,
+      style:{paragraph:{indent:{left:720,hanging:360}}}}]},
+    {reference:'numbers',levels:[{level:0,format:LevelFormat.DECIMAL,text:'%1.',alignment:AlignmentType.LEFT,
+      style:{paragraph:{indent:{left:720,hanging:360}}}}]},
+  ]};
+
+  function safe(v){return String(v??'');}
+  function br(){return new Paragraph({children:[]});}
+  function lbl(text){
+    return new Paragraph({spacing:{before:200,after:80},children:[new TextRun({text:text.toUpperCase(),size:18,color:'732939',bold:true,font:'Arial'})]});
+  }
+  function body(text,opts={}){
+    return new Paragraph({spacing:{after:100},children:[new TextRun({text:safe(text),size:22,font:'Arial',...opts})]});
+  }
+  function makeTable(headers,rows,colWidths){
+    const totalW=colWidths.reduce((a,b)=>a+b,0);
+    return new Table({
+      width:{size:totalW,type:WidthType.DXA},
+      columnWidths:colWidths,
+      rows:[
+        new TableRow({tableHeader:true,children:headers.map((h,i)=>new TableCell({
+          borders,margins:cm,width:{size:colWidths[i],type:WidthType.DXA},
+          shading:{fill:'1b1815',type:ShadingType.CLEAR},
+          children:[new Paragraph({children:[new TextRun({text:safe(h),bold:true,color:'f1e9db',size:18,font:'Arial'})]})]
+        }))}),
+        ...rows.map(row=>new TableRow({children:row.map((cell,i)=>new TableCell({
+          borders,margins:cm,width:{size:colWidths[i],type:WidthType.DXA},
+          children:[new Paragraph({children:[new TextRun({text:safe(cell),size:20,font:'Arial'})]})]
+        }))}))
+      ]
+    });
+  }
+  function riskColor(nivel){
+    const n=(nivel||'').toLowerCase();
+    return n==='bajo'?'4caf50':n==='alto'?'f44336':'ff9800';
+  }
+  function sevColor(s){
+    return s==='alta'?'a71f2d':s==='media'?'b57a1f':'5a6b3c';
+  }
+
+  function buildDocChildren(doc,isFirst){
+    const d=doc.data;
+    const children=[];
+    if(!isFirst) children.push(new Paragraph({pageBreakBefore:true,children:[]}));
+
+    // ── Header ──
+    children.push(new Paragraph({spacing:{after:60},children:[new TextRun({text:'LEX · ANÁLISIS DOCUMENTAL PRO',size:16,color:'732939',bold:true,font:'Arial'})]}));
+    children.push(new Paragraph({heading:HeadingLevel.HEADING_1,children:[new TextRun({text:safe(d.tipoDocumento),font:'Arial'})]}));
+    children.push(body(`Archivo: ${doc.file.name}`,{color:'55504a',size:20}));
+    children.push(new Paragraph({spacing:{after:60},children:[new TextRun({
+      text:`Puntaje: ${d.puntaje??'—'}/100  ·  Riesgo: ${safe(d.nivelRiesgo).toUpperCase()}  ·  ${fecha}`,
+      size:20,color:riskColor(d.nivelRiesgo),bold:true,font:'Arial'
+    })]}));
+    children.push(br());
+
+    // ── Resumen ejecutivo ──
+    if(d.resumenEjecutivo){
+      children.push(lbl('Resumen Ejecutivo'));
+      children.push(body(d.resumenEjecutivo));
+      children.push(br());
+    }
+    // ── Resumen ──
+    children.push(lbl('Resumen'));
+    children.push(body(d.resumen));
+    children.push(br());
+
+    // ── Partes ──
+    if(d.partes?.length){
+      children.push(lbl('Partes Involucradas'));
+      children.push(makeTable(['Nombre','Rol','Identificación'],d.partes.map(p=>[p.nombre,p.rol,p.identificacion||''],[3120,3120,3120]),[3120,3120,3120]));
+      children.push(br());
+    }
+
+    // ── Fechas ──
+    if(d.fechasClave?.length){
+      children.push(lbl('Fechas Clave'));
+      children.push(makeTable(['Fecha','Descripción'],d.fechasClave.map(f=>[f.fecha,f.descripcion]),[2340,7020]));
+      children.push(br());
+    }
+
+    // ── Montos ──
+    if(d.montos?.length){
+      children.push(lbl('Montos y Valores'));
+      children.push(makeTable(['Descripción','Valor','Tipo'],d.montos.map(m=>[m.descripcion,m.valor,m.tipo]),[4680,2340,2340]));
+      children.push(br());
+    }
+
+    // ── Pros ──
+    if(d.pros?.length){
+      children.push(lbl('Puntos a Favor'));
+      d.pros.forEach(item=>children.push(new Paragraph({numbering:{reference:'bullets',level:0},children:[new TextRun({text:safe(item),size:22,font:'Arial'})]})));
+      children.push(br());
+    }
+
+    // ── Contras ──
+    if(d.contras?.length){
+      children.push(lbl('Contras y Riesgos'));
+      d.contras.forEach(item=>children.push(new Paragraph({numbering:{reference:'bullets',level:0},children:[new TextRun({text:safe(item),size:22,font:'Arial'})]})));
+      children.push(br());
+    }
+
+    // ── Cosas a revisar ──
+    if(d.cosasARevisar?.length){
+      children.push(lbl('Cosas a Revisar'));
+      d.cosasARevisar.forEach(item=>children.push(new Paragraph({numbering:{reference:'bullets',level:0},children:[new TextRun({text:safe(item),size:22,font:'Arial'})]})));
+      children.push(br());
+    }
+
+    // ── Cláusulas ──
+    if(d.clausulasClave?.length){
+      children.push(lbl('Cláusulas Importantes'));
+      d.clausulasClave.forEach((c,i)=>{
+        children.push(new Paragraph({heading:HeadingLevel.HEADING_2,children:[new TextRun({text:`${i+1}. ${safe(c.titulo)}`,font:'Arial'})]}));
+        children.push(body(c.detalle));
+        if(c.impacto) children.push(new Paragraph({spacing:{after:120},children:[new TextRun({text:`Impacto: ${safe(c.impacto).toUpperCase()}`,color:sevColor(c.impacto),bold:true,size:20,font:'Arial'})]}));
+      });
+      children.push(br());
+    }
+
+    // ── Alertas ──
+    if(d.alertas?.length){
+      children.push(lbl('Alertas y Riesgos'));
+      d.alertas.forEach(a=>{
+        children.push(new Paragraph({spacing:{after:80},children:[
+          new TextRun({text:`[${safe(a.severidad).toUpperCase()}] `,bold:true,color:sevColor(a.severidad),size:22,font:'Arial'}),
+          new TextRun({text:safe(a.problema),size:22,font:'Arial'})
+        ]}));
+      });
+      children.push(br());
+    }
+
+    // ── Términos ──
+    if(d.terminosImportantes?.length){
+      children.push(lbl('Términos Importantes'));
+      children.push(body((d.terminosImportantes||[]).join(' · ')));
+      children.push(br());
+    }
+
+    // ── Recomendaciones ──
+    if(d.recomendaciones?.length){
+      children.push(lbl('Recomendaciones'));
+      d.recomendaciones.forEach((r,i)=>children.push(new Paragraph({numbering:{reference:'numbers',level:0},children:[new TextRun({text:safe(r),size:22,font:'Arial'})]})));
+      children.push(br());
+    }
+
+    return children;
+  }
+
+  const allChildren=[];
+  docsList.forEach((doc,i)=>buildDocChildren(doc,i===0).forEach(c=>allChildren.push(c)));
+
+  // Disclaimer al final
+  allChildren.push(new Paragraph({border:{bottom:{style:BorderStyle.SINGLE,size:1,color:'CCCCCC',space:1}},children:[]}));
+  allChildren.push(br());
+  allChildren.push(new Paragraph({alignment:AlignmentType.CENTER,children:[new TextRun({
+    text:'Generado por Lex · Groq LLaMA 3.3 · Análisis informativo, no sustituye asesoría legal profesional.',
+    size:18,color:'55504a',italics:true,font:'Arial'
+  })]}));
+
+  const document=new Document({
+    numbering,
+    styles:{
+      default:{document:{run:{font:'Arial',size:22}}},
+      paragraphStyles:[
+        {id:'Heading1',name:'Heading 1',basedOn:'Normal',next:'Normal',quickFormat:true,
+          run:{size:36,bold:true,font:'Arial',color:'1b1815'},
+          paragraph:{spacing:{before:320,after:160},outlineLevel:0}},
+        {id:'Heading2',name:'Heading 2',basedOn:'Normal',next:'Normal',quickFormat:true,
+          run:{size:26,bold:true,font:'Arial',color:'1b1815'},
+          paragraph:{spacing:{before:200,after:100},outlineLevel:1}},
+      ]
+    },
+    sections:[{
+      properties:{page:{
+        size:{width:12240,height:15840},
+        margin:{top:1440,right:1440,bottom:1440,left:1440}
+      }},
+      children:allChildren
+    }]
+  });
+
+  return Packer.toBlob(document);
+}
+
+async function downloadDocx(id){
+  const doc=documents.get(id);if(!doc?.data)return;
+  const btn=document.getElementById(`word-btn-${id}`);
+  const spin=document.getElementById(`word-spin-${id}`);
+  if(btn) btn.disabled=true;
+  if(spin) spin.classList.add('active');
+  try{
+    const blob=await buildDocxBlob([doc]);
+    triggerBlobDownload(blob,doc.file.name.replace(/\.[^.]+$/,'')+'_informe.docx');
+  }catch(e){
+    alert('Error al generar Word: '+e.message);
+    console.error(e);
+  }finally{
+    if(btn) btn.disabled=false;
+    if(spin) spin.classList.remove('active');
+  }
+}
+
+async function downloadGlobalDocx(){
+  const done=Array.from(documents.values()).filter(d=>d.status==='done');
+  if(!done.length){alert('No hay documentos analizados aún.');return;}
+  try{
+    const blob=await buildDocxBlob(done);
+    triggerBlobDownload(blob,`Lex_Informe_Global_${Date.now()}.docx`);
+  }catch(e){
+    alert('Error al generar Word: '+e.message);
+    console.error(e);
+  }
 }
 
 // ── DOWNLOADS ─────────────────────────────────────────────────────────────────
@@ -726,8 +959,13 @@ ${docs.map(d=>docBlock(d)).join('')}
 
 function triggerDownload(content,filename,type){
   const blob=new Blob([content],{type});
+  triggerBlobDownload(blob,filename);
+}
+function triggerBlobDownload(blob,filename){
   const a=document.createElement('a');
-  a.href=URL.createObjectURL(blob);a.download=filename;a.click();
+  a.href=URL.createObjectURL(blob);
+  a.download=filename;
+  a.click();
   URL.revokeObjectURL(a.href);
 }
 </script>
