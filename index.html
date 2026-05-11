@@ -10,7 +10,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<script src="https://unpkg.com/docx@8.5.0/build/index.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/docx@7.8.2/build/index.js"></script>
 <style>
 :root{
   --paper:#f1e9db;--paper-deep:#e6dcc8;--ink:#1b1815;--ink-soft:#55504a;
@@ -608,8 +608,9 @@ function readAllDocs(){
 
 // ── WORD / DOCX ───────────────────────────────────────────────────────────────
 async function buildDocxBlob(docsList){
+  if(!window.docx) throw new Error('La librería docx no se cargó correctamente. Recarga la página.');
   const {Document,Packer,Paragraph,TextRun,HeadingLevel,AlignmentType,
-         Table,TableRow,TableCell,WidthType,BorderStyle,ShadingType,LevelFormat,PageBreak}=window.docx;
+         Table,TableRow,TableCell,WidthType,BorderStyle,ShadingType,LevelFormat}=window.docx;
 
   const fecha=new Date().toLocaleDateString('es-PA',{day:'2-digit',month:'long',year:'numeric'});
   const brd={style:BorderStyle.SINGLE,size:1,color:'CCCCCC'};
